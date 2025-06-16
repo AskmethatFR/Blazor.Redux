@@ -8,9 +8,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 
 var initialCounterSlice = new CounterSlice { Value = 10 };
-builder.Services.AddRedux(initialCounterSlice);
-builder.Services.AddReducers();
-
+builder.Services.AddBlazorRedux(new BlazorReduxOption()
+{
+    Slices = [initialCounterSlice]
+});
 
 
 await builder.Build().RunAsync();

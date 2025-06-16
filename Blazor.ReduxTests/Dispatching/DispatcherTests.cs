@@ -168,7 +168,7 @@ public class DispatcherTests
     {
         var action = new CounterSliceAction(5);
 
-        SetupDispatcherWithoutCounterSlice();
+        SetupDispatcher([new NameSlice { Name = "Test" }]);
         
         Assert.Throws<ArgumentNullException>(() =>
             Dispatch<CounterSlice, CounterSliceAction>(action));
@@ -181,19 +181,11 @@ public class DispatcherTests
             ? new ISlice[] { new CounterSlice(), new NameSlice() }
             : slices;
 
-        services.AddRedux(defaultSlices);
-        services.AddReducers(Assembly.GetExecutingAssembly());
-
-        var serviceProvider = services.BuildServiceProvider();
-        _sut = serviceProvider.GetRequiredService<IDispatcher>();
-        _store = serviceProvider.GetRequiredService<Store>();
-    }
-
-    private void SetupDispatcherWithoutCounterSlice()
-    {
-        var services = new ServiceCollection();
-        services.AddRedux(new NameSlice());
-        services.AddReducers();
+        services.AddBlazorRedux(new BlazorReduxOption()
+        {
+            Slices = defaultSlices,
+            Assembly = Assembly.GetExecutingAssembly()
+        });
 
         var serviceProvider = services.BuildServiceProvider();
         _sut = serviceProvider.GetRequiredService<IDispatcher>();

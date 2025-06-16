@@ -22,7 +22,7 @@ public class AsyncDispatcherTests
 
         SetupAsyncDispatcher();
         await DispatchAsync<CounterSlice, FetchCounterAction>(action);
-        
+
         Verify(expectedSlice);
     }
 
@@ -34,7 +34,7 @@ public class AsyncDispatcherTests
 
         SetupAsyncDispatcher();
         await DispatchAsync<UserSlice, FetchUserAction>(action);
-        
+
         Verify(expectedSlice);
     }
 
@@ -48,7 +48,7 @@ public class AsyncDispatcherTests
         SetupAsyncDispatcher();
         UpdateSlice(initialSlice);
         await DispatchAsync<CounterSlice, IncrementFromCurrentAction>(action);
-        
+
         Verify(expectedSlice);
     }
 
@@ -60,7 +60,7 @@ public class AsyncDispatcherTests
 
         SetupAsyncDispatcher();
         await DispatchAsync<CounterSlice, SlowCounterAction>(action);
-        
+
         Verify(expectedSlice);
     }
 
@@ -78,7 +78,7 @@ public class AsyncDispatcherTests
         // L'état original n'est pas modifié
         var unchangedInitialSlice = new CounterSlice { Value = 10, IsLoading = false };
         Assert.Equivalent(unchangedInitialSlice, initialSlice);
-        
+
         // Le store contient le nouvel état
         Verify(expectedFinalSlice);
     }
@@ -98,9 +98,9 @@ public class AsyncDispatcherTests
     }
 
     [Theory]
-    [InlineData(5, 55)]    // 5 + 50 = 55
-    [InlineData(10, 60)]   // 10 + 50 = 60  
-    [InlineData(25, 75)]   // 25 + 50 = 75
+    [InlineData(5, 55)] // 5 + 50 = 55
+    [InlineData(10, 60)] // 10 + 50 = 60  
+    [InlineData(25, 75)] // 25 + 50 = 75
     public async Task AsyncDispatcherShouldHandleVariousIncrements(int initialValue, int expectedFinalValue)
     {
         var initialSlice = new CounterSlice { Value = initialValue, IsLoading = false };
@@ -123,7 +123,7 @@ public class AsyncDispatcherTests
         var expectedUserSlice = new UserSlice { Name = "User-456", IsLoading = false };
 
         SetupAsyncDispatcher();
-        
+
         var counterTask = DispatchAsync<CounterSlice, FetchCounterAction>(counterAction);
         var userTask = DispatchAsync<UserSlice, FetchUserAction>(userAction);
         await Task.WhenAll(counterTask, userTask);
@@ -167,8 +167,11 @@ public class AsyncDispatcherTests
         var counterSlice = new CounterSlice { Value = 0, IsLoading = false };
         var userSlice = new UserSlice { Name = "", IsLoading = false };
 
-        services.AddRedux(counterSlice, userSlice);
-        services.AddReducers(Assembly.GetExecutingAssembly());
+        services.AddBlazorRedux(new BlazorReduxOption()
+        {
+            Slices = [counterSlice, userSlice],
+            Assembly = Assembly.GetExecutingAssembly()
+        });
 
         var serviceProvider = services.BuildServiceProvider();
         _sut = serviceProvider.GetRequiredService<IAsyncDispatcher>();
@@ -191,7 +194,7 @@ public class AsyncDispatcherTests
     {
         var actual = _store.GetSlice<T>();
         Assert.Equivalent(expected, actual);
-        
+
         if (actual is not null)
         {
             Assert.NotSame(expected, actual);

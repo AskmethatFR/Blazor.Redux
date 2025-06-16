@@ -8,14 +8,17 @@ namespace Blazor.Redux.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddRedux(this IServiceCollection services, params ISlice[] slices)
+    
+
+    public static IServiceCollection AddBlazorRedux(this IServiceCollection services, BlazorReduxOption options)
     {
-        var store = Store.Init(slices);
+        var store = Store.Init(options.Slices);
         services.AddSingleton(store);
         services.AddSingleton<IObservableStore>(store);
         services.AddScoped<IDispatcher, Dispatcher>();
         services.AddScoped<IAsyncDispatcher, AsyncDispatcher>();
 
+        AddReducers(services, options.Assembly);
         return services;
     }
 

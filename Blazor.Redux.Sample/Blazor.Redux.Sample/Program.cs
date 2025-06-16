@@ -11,10 +11,11 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 var initialCounterSlice = new CounterSlice { Value = 10 };
-builder.Services.AddRedux(initialCounterSlice);
+builder.Services.AddBlazorRedux(new BlazorReduxOption()
+{
+    Slices = [initialCounterSlice]
+});
 
-var testAssembly = Assembly.GetExecutingAssembly();
-builder.Services.AddReducers();
 
 var app = builder.Build();
 
