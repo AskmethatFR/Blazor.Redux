@@ -1,4 +1,5 @@
 using Blazor.Redux.Core;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Dispatching;
@@ -8,12 +9,14 @@ public class AsyncDispatcher : IAsyncDispatcher
     private readonly Store _store;
     private readonly IDispatcher _dispatcher;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IStoreEventPublisher? _eventPublisher;
 
-    public AsyncDispatcher(Store store, IDispatcher dispatcher, IServiceProvider serviceProvider)
+    public AsyncDispatcher(Store store, IDispatcher dispatcher, IServiceProvider serviceProvider, IStoreEventPublisher? eventPublisher)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _dispatcher = dispatcher;
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _eventPublisher = eventPublisher;
     }
 
     public async Task DispatchAsync<TSlice, TAction>(TAction action, CancellationToken cancellationToken = default)
@@ -45,6 +48,16 @@ public class AsyncDispatcher : IAsyncDispatcher
         // Le reducer fait le travail, pas le dispatcher !
         var newSlice = await reducer.ReduceAsync(currentSlice, action);
 
+        if (_eventPublisher != null)
+        {
+            _eventPublisher.PublishEvent(new StoreEvent(
+                EventType: typeof(TAction).Name,
+                SliceType: typeof(TSlice).Name,
+                NewState: newSlice,
+                PreviousState: currentSlice,
+                Action: action
+            ));
+        }
         // Le dispatcher se contente de mettre à jour le store
         _store.UpdateSlice(newSlice);
     }

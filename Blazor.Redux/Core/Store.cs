@@ -1,6 +1,7 @@
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Core;
@@ -31,7 +32,7 @@ public record Store : IObservableStore, IDisposable
         var updatedSlice = _state.UpdateSlice(update);
         
         _sliceChanges.OnNext((typeof(TSlice), updatedSlice));
-        
+
         return updatedSlice;
     }
 

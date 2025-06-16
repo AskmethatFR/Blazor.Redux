@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Blazor.Redux.DevTools\Blazor.Redux.DevTools.csproj" />
       <ProjectReference Include="..\..\Blazor.Redux\Blazor.Redux.csproj" />
     </ItemGroup>
 

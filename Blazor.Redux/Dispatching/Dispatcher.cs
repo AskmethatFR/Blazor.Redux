@@ -1,4 +1,5 @@
 using Blazor.Redux.Core;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Dispatching;
@@ -8,10 +9,13 @@ public class Dispatcher : IDispatcher
     private readonly Store _store;
     private readonly IServiceProvider _serviceProvider;
 
-    public Dispatcher(Store store, IServiceProvider serviceProvider)
+    private readonly IStoreEventPublisher? _eventPublisher;
+
+    public Dispatcher(Store store, IServiceProvider serviceProvider, IStoreEventPublisher? eventPublisher)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _eventPublisher = eventPublisher;
     }
 
     public void Dispatch<TSlice, TAction>(TAction action)
@@ -38,6 +42,18 @@ public class Dispatcher : IDispatcher
         if(currentSlice is null) throw new ArgumentNullException("currentSlice");
 
         var newSlice = reducer.Reduce(currentSlice, action);
+
+        if (_eventPublisher != null)
+        {
+            _eventPublisher.PublishEvent(new StoreEvent(
+                EventType: typeof(TAction).Name,
+                SliceType: typeof(TSlice).Name,
+                NewState: newSlice,
+                PreviousState: currentSlice,
+                Action: action
+            ));
+        }
+
         _store.UpdateSlice(newSlice);
     }
 }

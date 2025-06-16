@@ -1,5 +1,6 @@
 using System.Reflection;
 using Blazor.Redux;
+using Blazor.Redux.DevTools.Extensions;
 using Blazor.Redux.Extensions;
 using Blazor.Redux.Sample.Client.Pages;
 using Blazor.Redux.Sample.Components;
@@ -16,6 +17,7 @@ builder.Services.AddBlazorRedux(new BlazorReduxOption()
     Slices = [initialCounterSlice]
 });
 
+builder.Services.AddReduxDevTools();
 
 var app = builder.Build();
 

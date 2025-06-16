@@ -1,5 +1,6 @@
 using System.Reflection;
 using Blazor.Redux.Core;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Extensions;
 using Blazor.Redux.Interfaces;
 using Blazor.ReduxTests.Core;
@@ -19,6 +20,7 @@ public class DispatcherTests
 {
     private IDispatcher _sut;
     private Store _store;
+    private SpyStoreEventPublisher _eventPublisher = new SpyStoreEventPublisher();
 
     [Theory]
     [InlineData(5)]
@@ -30,7 +32,7 @@ public class DispatcherTests
 
         SetupDispatcher();
         Dispatch<CounterSlice, CounterSliceAction>(action);
-        
+
         Verify(expected);
     }
 
@@ -43,7 +45,7 @@ public class DispatcherTests
 
         SetupDispatcher(initialSlice);
         Dispatch<CounterSlice, CounterSliceAction>(action);
-        
+
         Verify(expected);
     }
 
@@ -58,7 +60,7 @@ public class DispatcherTests
         SetupDispatcher(initialSlice);
         Dispatch<CounterSlice, CounterSliceAction>(action1);
         Dispatch<CounterSlice, CounterSliceAction>(action2);
-        
+
         Verify(expected);
     }
 
@@ -72,7 +74,7 @@ public class DispatcherTests
 
         SetupDispatcher();
         Dispatch<NameSlice, NameAction>(action);
-        
+
         Verify(expected);
     }
 
@@ -87,7 +89,7 @@ public class DispatcherTests
         SetupDispatcher();
         Dispatch<CounterSlice, CounterSliceAction>(counterAction);
         Dispatch<NameSlice, NameAction>(nameAction);
-        
+
         Verify(expectedCounter);
         Verify(expectedName);
     }
@@ -96,7 +98,7 @@ public class DispatcherTests
     public void DispatcherNotBeAbleToAcceptNullAction()
     {
         SetupDispatcher();
-        
+
         Assert.Throws<ArgumentNullException>(() =>
             _sut.Dispatch<CounterSlice, CounterSliceAction>(null!));
     }
@@ -126,7 +128,7 @@ public class DispatcherTests
         SetupDispatcher();
         Dispatch<CounterSlice, CounterSliceAction>(counterAction);
         Dispatch<NameSlice, NameAction>(nameAction);
-        
+
         Verify(expectedCounter);
         Verify(expectedName);
     }
@@ -143,7 +145,7 @@ public class DispatcherTests
         Dispatch<NameSlice, NameAction>(action1);
         Dispatch<NameSlice, NameAction>(action2);
         Dispatch<NameSlice, NameAction>(action3);
-        
+
         Verify(expected);
     }
 
@@ -158,7 +160,7 @@ public class DispatcherTests
         SetupDispatcher();
         Dispatch<CounterSlice, CounterSliceAction>(counterAction);
         Dispatch<NameSlice, NameAction>(nameAction);
-        
+
         Verify(expectedCounter);
         Verify(expectedName);
     }
@@ -169,15 +171,36 @@ public class DispatcherTests
         var action = new CounterSliceAction(5);
 
         SetupDispatcher([new NameSlice { Name = "Test" }]);
-        
+
         Assert.Throws<ArgumentNullException>(() =>
             Dispatch<CounterSlice, CounterSliceAction>(action));
+    }
+
+    [Fact]
+    public void DispatcherShouldPublishEventOnDispatch()
+    {
+        // Arrange
+        var action = new CounterSliceAction(10);
+
+        // Act
+        SetupDispatcher([new CounterSlice() { }]);
+        Dispatch<CounterSlice, CounterSliceAction>(action);
+
+
+        // Assert
+        var lastEvent = _eventPublisher.LastPublishedEvent;
+        Assert.NotNull(lastEvent);
+        Assert.Equal("CounterSliceAction", lastEvent.EventType);
+        Assert.Equal("CounterSlice", lastEvent.SliceType);
+        Assert.Equal(action, lastEvent.Action);
+        Assert.Equal(new CounterSlice { Value = 10 }, lastEvent.NewState);
+        Assert.Equal(new CounterSlice { Value = 0 }, lastEvent.PreviousState);
     }
 
     private void SetupDispatcher(params ISlice[] slices)
     {
         var services = new ServiceCollection();
-        var defaultSlices = slices.Length == 0 
+        var defaultSlices = slices.Length == 0
             ? new ISlice[] { new CounterSlice(), new NameSlice() }
             : slices;
 
@@ -187,6 +210,7 @@ public class DispatcherTests
             Assembly = Assembly.GetExecutingAssembly()
         });
 
+        services.AddTransient<IStoreEventPublisher, SpyStoreEventPublisher>(_ => _eventPublisher);
         var serviceProvider = services.BuildServiceProvider();
         _sut = serviceProvider.GetRequiredService<IDispatcher>();
         _store = serviceProvider.GetRequiredService<Store>();
@@ -203,7 +227,7 @@ public class DispatcherTests
     {
         var actual = _store.GetSlice<T>();
         Assert.Equivalent(expected, actual);
-        
+
         if (actual is not null)
         {
             Assert.NotSame(expected, actual);
@@ -212,5 +236,17 @@ public class DispatcherTests
 }
 
 #region Test Materials
+
+public class SpyStoreEventPublisher : IStoreEventPublisher
+{
+    public StoreEvent LastPublishedEvent { get; private set; }
+
+    public event Action<StoreEvent>? EventOccurred;
+
+    public void PublishEvent(StoreEvent storeEvent)
+    {
+        LastPublishedEvent = storeEvent;
+    }
+}
 
 #endregion

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Blazor.Redux.Core;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Dispatching;
 using Blazor.Redux.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IObservableStore>(store);
         services.AddScoped<IDispatcher, Dispatcher>();
         services.AddScoped<IAsyncDispatcher, AsyncDispatcher>();
+        services.AddScoped<IStoreEventPublisher, StoreEventPublisher>();
 
         AddReducers(services, options.Assembly);
         return services;
