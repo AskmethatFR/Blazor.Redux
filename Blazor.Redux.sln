@@ -1,0 +1,40 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux", "Blazor.Redux\Blazor.Redux.csproj", "{687AE4B1-38D8-4A65-9338-14F771E93DBA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.ReduxTests", "Blazor.ReduxTests\Blazor.ReduxTests.csproj", "{A6CEBACD-84D6-4AC7-98A9-E5FDBB763FE7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{A6023CD4-72E3-4703-8B23-4793E5E570BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux.Sample", "Blazor.Redux.Sample\Blazor.Redux.Sample\Blazor.Redux.Sample.csproj", "{5E82E0AA-A99A-4646-8992-BFE6230554C8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux.Sample.Client", "Blazor.Redux.Sample\Blazor.Redux.Sample.Client\Blazor.Redux.Sample.Client.csproj", "{F7326E16-6ACC-442C-A875-6566CEE07540}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{687AE4B1-38D8-4A65-9338-14F771E93DBA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{687AE4B1-38D8-4A65-9338-14F771E93DBA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{687AE4B1-38D8-4A65-9338-14F771E93DBA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{687AE4B1-38D8-4A65-9338-14F771E93DBA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6CEBACD-84D6-4AC7-98A9-E5FDBB763FE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6CEBACD-84D6-4AC7-98A9-E5FDBB763FE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6CEBACD-84D6-4AC7-98A9-E5FDBB763FE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6CEBACD-84D6-4AC7-98A9-E5FDBB763FE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E82E0AA-A99A-4646-8992-BFE6230554C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E82E0AA-A99A-4646-8992-BFE6230554C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E82E0AA-A99A-4646-8992-BFE6230554C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E82E0AA-A99A-4646-8992-BFE6230554C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7326E16-6ACC-442C-A875-6566CEE07540}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7326E16-6ACC-442C-A875-6566CEE07540}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7326E16-6ACC-442C-A875-6566CEE07540}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7326E16-6ACC-442C-A875-6566CEE07540}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5E82E0AA-A99A-4646-8992-BFE6230554C8} = {A6023CD4-72E3-4703-8B23-4793E5E570BC}
+		{F7326E16-6ACC-442C-A875-6566CEE07540} = {A6023CD4-72E3-4703-8B23-4793E5E570BC}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,137 @@
+@page "/optimized-counter"
+@rendermode InteractiveWebAssembly
+@using Blazor.Redux
+@using Blazor.Redux.Core
+@using Blazor.Redux.Extensions
+@using Blazor.Redux.Interfaces
+@inject Store Store
+@inject IDispatcher Dispatcher
+@implements IDisposable
+
+<PageTitle>Optimized Counter</PageTitle>
+
+<h1>Optimized Counter</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Count: @currentCount</h5>
+                <p class="card-text">Re-renders: @countRenders</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Status: @(isLoading ? "Loading" : "Ready")</h5>
+                <p class="card-text">Re-renders: @loadingRenders</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Message: @message</h5>
+                <p class="card-text">Re-renders: @messageRenders</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="btn-group mt-3" role="group">
+    <button class="btn btn-primary" @onclick="Increment">+1</button>
+    <button class="btn btn-info" @onclick="ToggleLoading">Toggle Loading</button>
+    <button class="btn btn-warning" @onclick="ChangeMessage">Change Message</button>
+    <button class="btn btn-secondary" @onclick="Reset">Reset Counters</button>
+</div>
+
+@code {
+    private int currentCount = 0;
+    private bool isLoading = false;
+    private string message = "";
+
+    // Compteurs de re-renders pour démontrer l'optimisation
+    private int countRenders = 0;
+    private int loadingRenders = 0;
+    private int messageRenders = 0;
+
+    private IDisposable? _countSubscription;
+    private IDisposable? _loadingSubscription;
+    private IDisposable? _messageSubscription;
+
+    protected override void OnInitialized()
+    {
+        // Initialisation des valeurs
+        currentCount = Store.GetSliceProperty<CounterSlice, int>(slice => slice.Value);
+        isLoading = Store.GetSliceProperty<CounterSlice, bool>(slice => slice.IsLoading);
+        message = Store.GetSliceProperty<CounterSlice, string>(slice => slice.Message);
+
+        // Observer SEULEMENT la propriété Value
+        _countSubscription = Store.ObserveProperty<CounterSlice, int>(slice => slice.Value)
+            .Subscribe(value =>
+            {
+                currentCount = value;
+                countRenders++;
+                InvokeAsync(StateHasChanged);
+            });
+
+        // Observer SEULEMENT la propriété IsLoading
+        _loadingSubscription = Store.ObserveProperty<CounterSlice, bool>(slice => slice.IsLoading)
+            .Subscribe(loading =>
+            {
+                isLoading = loading;
+                loadingRenders++;
+                InvokeAsync(StateHasChanged);
+            });
+
+        // Observer SEULEMENT la propriété Message
+        _messageSubscription = Store.ObserveProperty<CounterSlice, string>(slice => slice.Message)
+            .Subscribe(msg =>
+            {
+                message = msg;
+                messageRenders++;
+                InvokeAsync(StateHasChanged);
+            });
+    }
+
+    private void Increment()
+    {
+        Dispatcher.Dispatch<CounterSlice, IncrementAction>(new IncrementAction());
+    }
+
+    private void ToggleLoading()
+    {
+        var current = Store.GetSlice<CounterSlice>()!;
+        Dispatcher.Dispatch<CounterSlice, SetLoadingAction>(
+            new SetLoadingAction(!current.IsLoading));
+    }
+
+    private void ChangeMessage()
+    {
+        string[] messages = ["Hello!", "Bonjour!", "Hola!", "Ciao!", ""];
+        var currentMsg = Store.GetSlice<CounterSlice>()?.Message ?? "";
+        var currentIndex = Array.IndexOf(messages, currentMsg);
+        var nextMessage = messages[(currentIndex + 1) % messages.Length];
+
+        Dispatcher.Dispatch<CounterSlice, SetMessageAction>(
+            new SetMessageAction(nextMessage));
+    }
+
+    private void Reset()
+    {
+        countRenders = 0;
+        loadingRenders = 0;
+        messageRenders = 0;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _countSubscription?.Dispose();
+        _loadingSubscription?.Dispose();
+        _messageSubscription?.Dispose();
+    }
+}

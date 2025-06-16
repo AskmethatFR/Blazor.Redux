@@ -1,0 +1,52 @@
+﻿@page "/counter"
+@rendermode InteractiveWebAssembly
+@using Blazor.Redux
+@using Blazor.Redux.Core
+@using Blazor.Redux.Extensions
+@using Blazor.Redux.Interfaces
+@inject Store Store
+@inject IDispatcher Dispatcher
+@implements IDisposable
+
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        // Récupérer l'état initial
+        currentCount = Store.GetSliceOrDefault<CounterSlice>() switch
+        {
+            { } slice => slice.Value,
+            null => 0
+        };
+
+        // S'abonner aux changements si le Store implémente IObservableStore
+        _subscription = Store.ObserveSlice<CounterSlice>()
+            .Subscribe(slice =>
+            {
+                currentCount = slice.Value;
+                InvokeAsync(StateHasChanged);
+            });
+
+    }
+
+    private void IncrementCount()
+    {
+        var action = new IncrementAction();
+        Dispatcher.Dispatch<CounterSlice, IncrementAction>(action);
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+    }
+}

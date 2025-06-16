@@ -1,0 +1,137 @@
+@page "/counter-async"
+@rendermode InteractiveWebAssembly
+@inject Store Store
+@inject IDispatcher Dispatcher
+@inject IAsyncDispatcher AsyncDispatcher
+@using Blazor.Redux.Core
+@using Blazor.Redux.Interfaces
+@implements IDisposable
+
+
+<PageTitle>Counter Async</PageTitle>
+
+<h1>Counter Async</h1>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Current count: @currentCount</h5>
+
+        @if (isLoading)
+        {
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2">@loadingMessage</span>
+        }
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @successMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                @errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+<div class="btn-group-vertical d-grid gap-2 mt-3" style="max-width: 300px;">
+    <button class="btn btn-primary" @onclick="IncrementAsync" disabled="@isLoading">
+        Increment Async (1s delay)
+    </button>
+
+    <button class="btn btn-secondary" @onclick="ClearMessages" disabled="@isLoading">
+        Clear Messages
+    </button>
+</div>
+
+<div class="mt-3">
+    <h6>Custom Delay:</h6>
+    <div class="input-group" style="max-width: 300px;">
+        <input type="number" @bind="customDelay" class="form-control" min="100" max="5000"/>
+        <span class="input-group-text">ms</span>
+        <button class="btn btn-outline-primary" @onclick="IncrementWithCustomDelay" disabled="@isLoading">
+            Go
+        </button>
+    </div>
+</div>
+
+@code {
+    private int currentCount = 0;
+    private bool isLoading = false;
+    private string? successMessage;
+    private string? errorMessage;
+    private string? loadingMessage;
+    private int customDelay = 1000;
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        RefreshFromStore();
+
+        // S'abonner aux changements si observable
+        if (Store is IObservableStore observableStore)
+        {
+            _subscription = observableStore.ObserveSlice<CounterSlice>()
+                .Subscribe(slice =>
+                {
+                    currentCount = slice.Value;
+                    isLoading = slice.IsLoading;
+                    successMessage = slice.Message;
+                    errorMessage = slice.Error;
+                    InvokeAsync(StateHasChanged);
+                });
+        }
+    }
+
+    private async Task IncrementAsync()
+    {
+        SetLoading("Incrementing...");
+        await AsyncDispatcher.DispatchAsync<CounterSlice, IncrementAsyncAction>(
+            new IncrementAsyncAction(1000));
+        RefreshFromStore();
+    }
+
+    private async Task IncrementWithCustomDelay()
+    {
+        SetLoading($"Custom delay: {customDelay}ms...");
+        await AsyncDispatcher.DispatchAsync<CounterSlice, IncrementAsyncAction>(
+            new IncrementAsyncAction(customDelay));
+        RefreshFromStore();
+    }
+
+    private void SetLoading(string message)
+    {
+        Dispatcher.Dispatch<CounterSlice, SetLoadingAction>(new SetLoadingAction(true, message));
+        RefreshFromStore();
+    }
+
+    private void ClearMessages()
+    {
+        Dispatcher.Dispatch<CounterSlice, SetSuccessAction>(new SetSuccessAction());
+        RefreshFromStore();
+    }
+
+    private void RefreshFromStore()
+    {
+        var counterSlice = Store.GetSlice<CounterSlice>();
+        if (counterSlice != null)
+        {
+            currentCount = counterSlice.Value;
+            isLoading = counterSlice.IsLoading;
+            successMessage = counterSlice.Message;
+            errorMessage = counterSlice.Error;
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+    }
+}
