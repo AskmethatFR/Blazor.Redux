@@ -1,0 +1,90 @@
+name: Build and Publish NuGet Packages
+
+on:
+  push:
+    tags:
+      - 'v*'  # Déclenche sur les tags de version (ex: v1.0.0)
+  workflow_dispatch: # Permet de déclencher manuellement
+    inputs:
+      version:
+        description: 'Version du package (ex: 1.0.0)'
+        required: true
+        type: string
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Nécessaire pour GitVersion
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Extraire la version du tag (enlever le 'v' du début)
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build projects
+        run: |
+          dotnet build --no-restore --configuration Release \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+
+      - name: Test projects
+        run: |
+          dotnet test Blazor.ReduxTests/Blazor.ReduxTests.csproj --no-build --configuration Release --verbosity normal
+          dotnet test Blazor.Redux.DevToolsTests/Blazor.Redux.DevToolsTests.csproj --no-build --configuration Release --verbosity normal
+          
+      - name: Pack Blazor.Redux
+        run: |
+          dotnet pack Blazor.Redux/Blazor.Redux.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Pack Blazor.Redux.DevTools
+        run: |
+          dotnet pack Blazor.Redux.DevTools/Blazor.Redux.DevTools.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./packages \
+            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: List generated packages
+        run: ls -la ./packages/
+
+      - name: Publish to NuGet.org
+        run: |
+          dotnet nuget push "./packages/*.nupkg" \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Upload packages as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ steps.version.outputs.VERSION }}
+          path: ./packages/*.nupkg

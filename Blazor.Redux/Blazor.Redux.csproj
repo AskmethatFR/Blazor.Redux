@@ -1,16 +1,42 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
         <LangVersion>latestmajor</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+
+        <!-- Métadonnées NuGet -->
+        <PackageId>Blazor.Redux</PackageId>
+        <Title>Blazor Redux</Title>
+        <Description>Redux state management for Blazor applications</Description>
+        <Authors>Alexandre TEIXEIRA</Authors>
+        <Company>Askmethat</Company>
+        <Product>Blazor.Redux</Product>
+        <Copyright>Copyright © Askmethat 2025</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/AskmethatFR/Blazor.Redux</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/AskmethatFR/Blazor.Redux</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>blazor;redux;state-management;dotnet</PackageTags>
+        <PackageReleaseNotes>Release notes for this version</PackageReleaseNotes>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
       <PackageReference Include="System.Reactive" Version="6.0.1" />
     </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1"/>
+    </ItemGroup>
+
 
     <ItemGroup>
       <Folder Include="Core\Events\" />

@@ -1,9 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+
+        <PackageId>Blazor.Redux.DevTools</PackageId>
+        <Title>Blazor Redux DevTools</Title>
+        <Description>Development tools for Blazor Redux state management</Description>
+        <Authors>Alexandre TEIXEIRA</Authors>
+        <Company>Askmethat</Company>
+        <Product>Blazor.Redux</Product>
+        <Copyright>Copyright © Askmethat 2025</Copyright>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/AskmethatFR/Blazor.Redux</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/AskmethatFR/Blazor.Redux</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>blazor;redux;devtools;development;dotnet</PackageTags>
+        <PackageReleaseNotes>Release notes for this version</PackageReleaseNotes>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
     </PropertyGroup>
 
 
@@ -11,8 +29,12 @@
         <SupportedPlatform Include="browser"/>
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.17"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -1,5 +1,6 @@
 using System.Reflection;
 using Blazor.Redux.Core;
+using Blazor.Redux.Core.Events;
 using Blazor.Redux.Extensions;
 using Blazor.Redux.Interfaces;
 using Blazor.ReduxTests.Core;
@@ -13,6 +14,8 @@ public class AsyncDispatcherTests
 {
     private IAsyncDispatcher _sut;
     private Store _store;
+    private SpyStoreEventPublisher _eventPublisher = new SpyStoreEventPublisher();
+
 
     [Fact]
     public async Task AsyncDispatcherShouldExecuteSuccessfully()
@@ -161,6 +164,26 @@ public class AsyncDispatcherTests
         return Task.CompletedTask;
     }
 
+    [Fact]
+    public void DispatcherShouldPublishEventOnDispatch()
+    {
+        // Arrange
+        var action = new FetchCounterAction();
+
+        // Act
+         SetupAsyncDispatcher();
+         _sut.DispatchAsync<CounterSlice, FetchCounterAction>(action);
+
+        // Assert
+        var lastEvent = _eventPublisher.LastPublishedEvent;
+        Assert.NotNull(lastEvent);
+        Assert.Equal("FetchCounterAction", lastEvent.EventType);
+        Assert.Equal("CounterSlice", lastEvent.SliceType);
+        Assert.Equal(action, lastEvent.Action);
+        Assert.Equal(new CounterSlice { Value = 0, IsLoading = true}, lastEvent.NewState);
+        Assert.Equal(new CounterSlice { Value = 0 }, lastEvent.PreviousState);
+    }
+
     private void SetupAsyncDispatcher()
     {
         var services = new ServiceCollection();
@@ -172,6 +195,7 @@ public class AsyncDispatcherTests
             Slices = [counterSlice, userSlice],
             Assembly = Assembly.GetExecutingAssembly()
         });
+        services.AddTransient<IStoreEventPublisher, SpyStoreEventPublisher>(_ => _eventPublisher);
 
         var serviceProvider = services.BuildServiceProvider();
         _sut = serviceProvider.GetRequiredService<IAsyncDispatcher>();

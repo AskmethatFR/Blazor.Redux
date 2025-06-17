@@ -17,8 +17,8 @@ public class ReduxDevTools : IReduxDevTools, IAsyncDisposable
 
     public ReduxDevTools(IJSRuntime jsRuntime, ILogger<ReduxDevTools> logger)
     {
-        _jsRuntime = jsRuntime;
-        _logger = logger;
+        _jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task InitAsync()
