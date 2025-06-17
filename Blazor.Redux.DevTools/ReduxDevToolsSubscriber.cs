@@ -10,14 +10,12 @@ public class ReduxDevToolsSubscriber : IAsyncDisposable
     private readonly IReduxDevTools _devTools;
     private readonly ILogger<ReduxDevToolsSubscriber> _logger;
 
-    public ReduxDevToolsSubscriber(
-        IStoreEventPublisher eventPublisher,
-        IReduxDevTools devTools,
+    public ReduxDevToolsSubscriber(IStoreEventPublisher eventPublisher, IReduxDevTools devTools,
         ILogger<ReduxDevToolsSubscriber> logger)
     {
-        _eventPublisher = eventPublisher;
-        _devTools = devTools;
-        _logger = logger;
+        _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
+        _devTools = devTools ?? throw new ArgumentNullException(nameof(devTools));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task InitializeAsync()
@@ -35,7 +33,6 @@ public class ReduxDevToolsSubscriber : IAsyncDisposable
     {
         try
         {
-            // Créer un objet anonyme pour les DevTools (pas besoin d'IAction)
             var actionData = new
             {
                 type = $"{storeEvent.EventType}_{storeEvent.SliceType}",
