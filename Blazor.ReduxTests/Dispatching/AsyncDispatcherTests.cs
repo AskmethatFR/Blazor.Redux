@@ -165,6 +165,18 @@ public class AsyncDispatcherTests
     }
 
     [Fact]
+    public async Task AsyncDispatcherShouldComposeMultipleAsyncReducersForSameAction()
+    {
+        var action = new MultiAsyncCounterAction(3, "Async Composed");
+        var expectedSlice = new CounterSlice { Value = 3, IsLoading = false, Message = "Async Composed" };
+
+        SetupAsyncDispatcher();
+        await DispatchAsync<CounterSlice, MultiAsyncCounterAction>(action);
+
+        Verify(expectedSlice);
+    }
+
+    [Fact]
     public void DispatcherShouldPublishEventOnDispatch()
     {
         // Arrange

@@ -1,6 +1,9 @@
+using Blazor.Redux.Core;
 using Blazor.Redux.Core.Events;
 using Blazor.Redux.DevTools;
 using Blazor.Redux.DevTools.Interfaces;
+using Blazor.Redux.Interfaces;
+using Blazor.Redux.Serialization;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -12,6 +15,8 @@ public class ReduxDevToolsSubscriberTests
 {
     private readonly StoreEventPublisher _eventPublisher;
     private readonly Mock<IReduxDevTools> _mockDevTools;
+    private readonly Mock<IRootStateStore> _mockRootStateStore;
+    private readonly Mock<IReduxSerializer> _mockSerializer;
     private readonly Mock<ILogger<ReduxDevToolsSubscriber>> _mockLogger;
     private ReduxDevToolsSubscriber _subscriber;
 
@@ -19,12 +24,20 @@ public class ReduxDevToolsSubscriberTests
     {
         _eventPublisher = new StoreEventPublisher();
         _mockDevTools = new Mock<IReduxDevTools>();
+        _mockRootStateStore = new Mock<IRootStateStore>();
+        _mockSerializer = new Mock<IReduxSerializer>();
         _mockLogger = new Mock<ILogger<ReduxDevToolsSubscriber>>();
 
         // Setup commun pour les mocks - toujours fait
         _mockDevTools.Setup(dt => dt.InitAsync()).Returns(Task.CompletedTask);
         _mockDevTools.Setup(dt => dt.SendAsync(It.IsAny<object>(), It.IsAny<object>())).Returns(Task.CompletedTask);
         _mockDevTools.Setup(dt => dt.DisconnectAsync()).Returns(Task.CompletedTask);
+        _mockRootStateStore.Setup(store => store.Current)
+            .Returns(new RootStateSnapshot(new Dictionary<Type, ISlice>()));
+        _mockSerializer.Setup(serializer => serializer.SerializeState(It.IsAny<RootStateSnapshot>()))
+            .Returns(new SerializedState(new List<SerializedSlice>()));
+        _mockSerializer.Setup(serializer => serializer.SerializeAction(It.IsAny<IAction>()))
+            .Returns(new SerializedAction("TestAction", System.Text.Json.JsonDocument.Parse("{}").RootElement));
     }
 
     #region Constructor Tests
@@ -55,7 +68,24 @@ public class ReduxDevToolsSubscriberTests
         var logger = nullLogger ? null : _mockLogger.Object;
 
         Assert.Throws<ArgumentNullException>(() =>
-            new ReduxDevToolsSubscriber(eventPublisher!, devTools!, logger!));
+            new ReduxDevToolsSubscriber(eventPublisher!, devTools!, _mockRootStateStore.Object, _mockSerializer.Object,
+                logger!));
+    }
+
+    [Fact]
+    public void ReduxDevToolsSubscriberConstructorShouldThrowWhenRootStateStoreIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ReduxDevToolsSubscriber(_eventPublisher, _mockDevTools.Object, null!, _mockSerializer.Object,
+                _mockLogger.Object));
+    }
+
+    [Fact]
+    public void ReduxDevToolsSubscriberConstructorShouldThrowWhenSerializerIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ReduxDevToolsSubscriber(_eventPublisher, _mockDevTools.Object, _mockRootStateStore.Object, null!,
+                _mockLogger.Object));
     }
 
     #endregion
@@ -139,6 +169,26 @@ public class ReduxDevToolsSubscriberTests
         await Task.Delay(50);
 
         VerifyErrorLogCalled("Error sending event to Redux DevTools");
+    }
+
+    [Fact]
+    public async Task OnStoreEventShouldSerializeActionWhenIActionProvided()
+    {
+        await CreateInitializedSubscriber(enabled: true);
+        var action = new SubscriberTestAction(3);
+        var storeEvent = new StoreEvent(
+            "SubscriberTestAction",
+            "TestSlice",
+            action,
+            new { value = 1 },
+            new { value = 0 },
+            DateTime.UtcNow);
+
+        _eventPublisher.PublishEvent(storeEvent);
+        await Task.Delay(50);
+
+        _mockSerializer.Verify(serializer => serializer.SerializeAction(action), Times.Once);
+        _mockDevTools.Verify(dt => dt.SendAsync(It.IsAny<object>(), It.IsAny<object>()), Times.Once);
     }
 
     [Fact]
@@ -279,7 +329,8 @@ public class ReduxDevToolsSubscriberTests
     #region Helper Methods
 
     private void CreateSubscriber() =>
-        _subscriber = new(_eventPublisher, _mockDevTools.Object, _mockLogger.Object);
+        _subscriber = new(_eventPublisher, _mockDevTools.Object, _mockRootStateStore.Object, _mockSerializer.Object,
+            _mockLogger.Object);
 
     private async Task CreateInitializedSubscriber(bool enabled)
     {
@@ -313,7 +364,7 @@ public class ReduxDevToolsSubscriberTests
     private void VerifyDevToolsSendCalled(StoreEvent storeEvent) =>
         _mockDevTools.Verify(dt => dt.SendAsync(
             It.IsAny<object>(),
-            storeEvent.NewState), Times.Once);
+            It.IsAny<object>()), Times.Once);
     private void VerifyInfoLogCalled(string message) =>
         _mockLogger.Verify(
             logger => logger.Log(
@@ -347,3 +398,5 @@ public class ReduxDevToolsSubscriberTests
 
     #endregion
 }
+
+public record SubscriberTestAction(int Value) : IAction;

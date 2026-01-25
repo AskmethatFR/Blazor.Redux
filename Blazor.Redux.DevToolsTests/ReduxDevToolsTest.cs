@@ -1,11 +1,14 @@
 
+using Blazor.Redux.Core;
 using Blazor.Redux.DevTools;
 using Blazor.Redux.DevTools.Interfaces;
+using Blazor.Redux.Interfaces;
 using JetBrains.Annotations;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Microsoft.JSInterop.Infrastructure;
 using Moq;
+using System.Text.Json;
 
 namespace Blazor.Redux.DevToolsTests;
 
@@ -14,11 +17,19 @@ public class ReduxDevToolsTests
 {
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<ILogger<ReduxDevTools>> _mockLogger;
+    private readonly Mock<IRootStateStore> _mockRootStateStore;
+    private readonly Mock<IStateSnapshotApplier> _mockSnapshotApplier;
+    private readonly Mock<IReduxSerializer> _mockSerializer;
 
     public ReduxDevToolsTests()
     {
         _mockJsRuntime = new Mock<IJSRuntime>();
         _mockLogger = new Mock<ILogger<ReduxDevTools>>();
+        _mockRootStateStore = new Mock<IRootStateStore>();
+        _mockSnapshotApplier = new Mock<IStateSnapshotApplier>();
+        _mockSerializer = new Mock<IReduxSerializer>();
+        _mockRootStateStore.Setup(store => store.Current)
+            .Returns(new RootStateSnapshot(new Dictionary<Type, ISlice>()));
     }
 
     #region Constructor Tests
@@ -48,14 +59,40 @@ public class ReduxDevToolsTests
     public void ReduxDevToolsConstructorShouldThrowWhenJsRuntimeIsNull()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ReduxDevTools(null!, _mockLogger.Object));
+            new ReduxDevTools(null!, _mockLogger.Object, _mockRootStateStore.Object, _mockSnapshotApplier.Object,
+                _mockSerializer.Object));
     }
 
     [Fact]
     public void ReduxDevToolsConstructorShouldThrowWhenLoggerIsNull()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new ReduxDevTools(_mockJsRuntime.Object, null!));
+            new ReduxDevTools(_mockJsRuntime.Object, null!, _mockRootStateStore.Object, _mockSnapshotApplier.Object,
+                _mockSerializer.Object));
+    }
+
+    [Fact]
+    public void ReduxDevToolsConstructorShouldThrowWhenRootStateStoreIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ReduxDevTools(_mockJsRuntime.Object, _mockLogger.Object, null!, _mockSnapshotApplier.Object,
+                _mockSerializer.Object));
+    }
+
+    [Fact]
+    public void ReduxDevToolsConstructorShouldThrowWhenSnapshotApplierIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ReduxDevTools(_mockJsRuntime.Object, _mockLogger.Object, _mockRootStateStore.Object, null!,
+                _mockSerializer.Object));
+    }
+
+    [Fact]
+    public void ReduxDevToolsConstructorShouldThrowWhenSerializerIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new ReduxDevTools(_mockJsRuntime.Object, _mockLogger.Object, _mockRootStateStore.Object,
+                _mockSnapshotApplier.Object, null!));
     }
 
     #endregion
@@ -214,16 +251,37 @@ public class ReduxDevToolsTests
         VerifyFullSequence();
     }
 
+    [Fact]
+    public async Task OnDevToolsMessageShouldApplySnapshotOnJumpToState()
+    {
+        var snapshot = new RootStateSnapshot(new Dictionary<Type, ISlice>());
+        _mockSerializer
+            .Setup(serializer => serializer.DeserializeState(It.IsAny<string>()))
+            .Returns(snapshot);
+
+        var devTools = await CreateEnabledDevTools();
+        var message = JsonDocument.Parse(
+            "{\"type\":\"DISPATCH\",\"payload\":{\"type\":\"JUMP_TO_STATE\"},\"state\":\"{}\"}").RootElement;
+
+        await devTools.OnDevToolsMessage(message);
+
+        _mockSnapshotApplier.Verify(applier =>
+            applier.ApplySnapshot(snapshot, true), Times.Once);
+    }
+
     #endregion
 
     #region Helper Methods
 
     private ReduxDevTools CreateReduxDevTools() =>
-        new(_mockJsRuntime.Object, _mockLogger.Object);
+        new(_mockJsRuntime.Object, _mockLogger.Object, _mockRootStateStore.Object, _mockSnapshotApplier.Object,
+            _mockSerializer.Object);
 
     private async Task<ReduxDevTools> CreateEnabledDevTools()
     {
         SetupJsInit(true);
+        _mockRootStateStore.Setup(store => store.Current)
+            .Returns(new RootStateSnapshot(new Dictionary<Type, ISlice>()));
         var devTools = CreateReduxDevTools();
         await devTools.InitAsync();
         return devTools;
@@ -232,6 +290,8 @@ public class ReduxDevToolsTests
     private async Task<ReduxDevTools> CreateDisabledDevTools()
     {
         SetupJsInit(false);
+        _mockRootStateStore.Setup(store => store.Current)
+            .Returns(new RootStateSnapshot(new Dictionary<Type, ISlice>()));
         var devTools = CreateReduxDevTools();
         await devTools.InitAsync();
         return devTools;

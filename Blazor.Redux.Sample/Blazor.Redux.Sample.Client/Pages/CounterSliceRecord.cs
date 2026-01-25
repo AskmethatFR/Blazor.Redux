@@ -49,7 +49,7 @@ public record SetLoadingReducer : IReducer<CounterSlice, SetLoadingAction>
         return slice with
         {
             IsLoading = action.IsLoading,
-            Message = action.Message,
+            Message = action.Message ?? slice.Message,
             Error = null
         };
     }

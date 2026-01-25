@@ -1,6 +1,8 @@
 using Microsoft.JSInterop;
 using System.Text.Json;
+using Blazor.Redux.Core;
 using Blazor.Redux.DevTools.Interfaces;
+using Blazor.Redux.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Blazor.Redux.DevTools;
@@ -9,16 +11,28 @@ public class ReduxDevTools : IReduxDevTools, IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly ILogger<ReduxDevTools> _logger;
+    private readonly IRootStateStore _rootStateStore;
+    private readonly IStateSnapshotApplier _snapshotApplier;
+    private readonly IReduxSerializer _serializer;
     private DotNetObjectReference<ReduxDevTools>? _dotNetRef;
     private IDevToolsInterop? _devToolsInterop;
     private bool _isInitialized;
+    private RootStateSnapshot? _committedSnapshot;
 
     public bool IsEnabled { get; private set; }
 
-    public ReduxDevTools(IJSRuntime jsRuntime, ILogger<ReduxDevTools> logger)
+    public ReduxDevTools(
+        IJSRuntime jsRuntime,
+        ILogger<ReduxDevTools> logger,
+        IRootStateStore rootStateStore,
+        IStateSnapshotApplier snapshotApplier,
+        IReduxSerializer serializer)
     {
         _jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _rootStateStore = rootStateStore ?? throw new ArgumentNullException(nameof(rootStateStore));
+        _snapshotApplier = snapshotApplier ?? throw new ArgumentNullException(nameof(snapshotApplier));
+        _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
     }
 
     public async Task InitAsync()
@@ -33,6 +47,7 @@ public class ReduxDevTools : IReduxDevTools, IAsyncDisposable
             
             if (IsEnabled)
             {
+                _committedSnapshot = _rootStateStore.Current;
                 _logger.LogInformation("Redux DevTools connected successfully");
             }
             else
@@ -68,7 +83,7 @@ public class ReduxDevTools : IReduxDevTools, IAsyncDisposable
         try
         {
             _logger.LogDebug("DevTools message received: {Message}", message);
-            // Implement time travel functionality here if needed
+            HandleDevToolsMessage(message);
         }
         catch (Exception ex)
         {
@@ -90,5 +105,72 @@ public class ReduxDevTools : IReduxDevTools, IAsyncDisposable
     {
         await DisconnectAsync();
         _dotNetRef?.Dispose();
+    }
+
+    private void HandleDevToolsMessage(JsonElement message)
+    {
+        if (!message.TryGetProperty("type", out var typeElement))
+        {
+            return;
+        }
+
+        var messageType = typeElement.GetString();
+        if (!string.Equals(messageType, "DISPATCH", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!message.TryGetProperty("payload", out var payloadElement))
+        {
+            return;
+        }
+
+        if (!payloadElement.TryGetProperty("type", out var payloadTypeElement))
+        {
+            return;
+        }
+
+        var payloadType = payloadTypeElement.GetString();
+        switch (payloadType)
+        {
+            case "JUMP_TO_STATE":
+            case "JUMP_TO_ACTION":
+                ApplyStateFromMessage(message);
+                break;
+            case "RESET":
+                if (_committedSnapshot != null)
+                {
+                    _snapshotApplier.ApplySnapshot(_committedSnapshot, strictValidation: true);
+                }
+                break;
+            case "ROLLBACK":
+                if (_committedSnapshot != null)
+                {
+                    _snapshotApplier.ApplySnapshot(_committedSnapshot, strictValidation: true);
+                }
+                break;
+            case "COMMIT":
+                _committedSnapshot = _rootStateStore.Current;
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void ApplyStateFromMessage(JsonElement message)
+    {
+        if (!message.TryGetProperty("state", out var stateElement))
+        {
+            return;
+        }
+
+        var stateJson = stateElement.GetString();
+        if (string.IsNullOrWhiteSpace(stateJson))
+        {
+            return;
+        }
+
+        var snapshot = _serializer.DeserializeState(stateJson);
+        _snapshotApplier.ApplySnapshot(snapshot, strictValidation: true);
     }
 }

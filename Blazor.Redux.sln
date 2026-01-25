@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux.DevTools", "Bl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux.DevToolsTests", "Blazor.Redux.DevToolsTests\Blazor.Redux.DevToolsTests.csproj", "{DC813914-CF11-4E33-AB28-E7A287898B4C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blazor.Redux.Benchmark", "Blazor.Redux.Benchmark\Blazor.Redux.Benchmark.csproj", "{08E7217E-7B7F-495D-BC98-C7A62B3B3C12}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,6 +46,10 @@ Global
 		{DC813914-CF11-4E33-AB28-E7A287898B4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DC813914-CF11-4E33-AB28-E7A287898B4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DC813914-CF11-4E33-AB28-E7A287898B4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08E7217E-7B7F-495D-BC98-C7A62B3B3C12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08E7217E-7B7F-495D-BC98-C7A62B3B3C12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08E7217E-7B7F-495D-BC98-C7A62B3B3C12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08E7217E-7B7F-495D-BC98-C7A62B3B3C12}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5E82E0AA-A99A-4646-8992-BFE6230554C8} = {A6023CD4-72E3-4703-8B23-4793E5E570BC}

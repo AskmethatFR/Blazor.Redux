@@ -1,0 +1,71 @@
+@page "/counter-effects"
+@rendermode InteractiveWebAssembly
+@using Blazor.Redux.Core
+@using Blazor.Redux.Interfaces
+@inject Store Store
+@inject IDispatcher Dispatcher
+@implements IDisposable
+
+<PageTitle>Counter Effects</PageTitle>
+
+<h1>Counter Effects</h1>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Count: @currentCount</h5>
+        <p class="card-text">Pending: @pendingCount</p>
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="alert alert-info" role="alert">
+                @message
+            </div>
+        }
+    </div>
+</div>
+
+<div class="btn-group mt-3" role="group">
+    <button class="btn btn-primary" @onclick="() => QueueIncrement(1, 500)">Queue +1 (500ms)</button>
+    <button class="btn btn-secondary" @onclick="() => QueueIncrement(5, 1500)">Queue +5 (1500ms)</button>
+    <button class="btn btn-outline-primary" @onclick="QueueBurst">Queue Burst (3x +1)</button>
+</div>
+
+@code {
+    private int currentCount;
+    private int pendingCount;
+    private string? message;
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        var slice = Store.GetSlice<EffectsSlice>() ?? new EffectsSlice();
+        currentCount = slice.Value;
+        pendingCount = slice.Pending;
+        message = slice.Message;
+
+        _subscription = Store.ObserveSlice<EffectsSlice>()
+            .Subscribe(updated =>
+            {
+                currentCount = updated.Value;
+                pendingCount = updated.Pending;
+                message = updated.Message;
+                InvokeAsync(StateHasChanged);
+            });
+    }
+
+    private void QueueIncrement(int amount, int delayMs)
+    {
+        Dispatcher.Dispatch<EffectsSlice, QueueIncrementAction>(new QueueIncrementAction(amount, delayMs));
+    }
+
+    private void QueueBurst()
+    {
+        QueueIncrement(1, 300);
+        QueueIncrement(1, 600);
+        QueueIncrement(1, 900);
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+    }
+}

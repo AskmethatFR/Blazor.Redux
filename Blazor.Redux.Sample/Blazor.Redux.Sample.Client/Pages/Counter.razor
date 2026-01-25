@@ -6,6 +6,7 @@
 @using Blazor.Redux.Interfaces
 @inject Store Store
 @inject IDispatcher Dispatcher
+@inject DispatchLogStore DispatchLogStore
 @implements IDisposable
 
 <PageTitle>Counter</PageTitle>
@@ -16,9 +17,21 @@
 
 <button class="btn btn-primary" @onclick="@(() => IncrementCount())">Click me</button>
 
+<div class="mt-3">
+    <h5>Middleware log</h5>
+    <ul class="list-group">
+        @foreach (var entry in DispatchLogStore.Entries)
+        {
+            <li class="list-group-item">@entry</li>
+        }
+    </ul>
+    <button class="btn btn-sm btn-outline-secondary mt-2" @onclick="ClearLog">Clear log</button>
+</div>
+
 @code {
     private int currentCount = 0;
     private IDisposable? _subscription;
+    private Action? _logSubscription;
 
     protected override void OnInitialized()
     {
@@ -37,6 +50,8 @@
                 InvokeAsync(StateHasChanged);
             });
 
+        _logSubscription = () => InvokeAsync(StateHasChanged);
+        DispatchLogStore.Changed += _logSubscription;
     }
 
     private void IncrementCount()
@@ -48,5 +63,14 @@
     public void Dispose()
     {
         _subscription?.Dispose();
+        if (_logSubscription != null)
+        {
+            DispatchLogStore.Changed -= _logSubscription;
+        }
+    }
+
+    private void ClearLog()
+    {
+        DispatchLogStore.Clear();
     }
 }

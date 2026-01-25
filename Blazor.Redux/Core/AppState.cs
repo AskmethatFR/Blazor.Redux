@@ -8,6 +8,7 @@ namespace Blazor.Redux.Core;
 internal record AppState
 {
     private readonly IDictionary<Type, ISlice> _slices = new Dictionary<Type, ISlice>();
+    private readonly ConcurrentDictionary<Type, bool> _isRecordCache = new();
 
     public T? GetSlice<T>() where T : class, ISlice
     {
@@ -16,12 +17,18 @@ internal record AppState
             return null;
         }
 
-        return DeepCopy<T>((first as T)!);
+        return DeepCopy((first as T)!);
     }
 
     public AppState AddSlice(ISlice slice)
     {
-        _slices.Add(slice.GetType(), slice);
+        if (slice == null)
+        {
+            throw new NullReferenceException();
+        }
+
+        var sliceType = slice.GetType();
+        _slices.Add(sliceType, DeepCopySlice(slice, sliceType));
         return this;
     }
 
@@ -42,29 +49,69 @@ internal record AppState
         return deepCopy;
     }
 
-    private ConcurrentDictionary<Type, bool> _isRecordCache = new();
+    public IReadOnlyDictionary<Type, ISlice> GetAllSlicesCopy()
+    {
+        var result = new Dictionary<Type, ISlice>(_slices.Count);
+        foreach (var slice in _slices)
+        {
+            result[slice.Key] = DeepCopySlice(slice.Value, slice.Key);
+        }
+
+        return result;
+    }
+
+    public IReadOnlyDictionary<Type, ISlice> GetAllSlicesSnapshot(SnapshotStrategy strategy)
+    {
+        return strategy == SnapshotStrategy.Reference
+            ? new Dictionary<Type, ISlice>(_slices)
+            : GetAllSlicesCopy();
+    }
+
     private T DeepCopy<T>(T source) where T : class, ISlice
+    {
+        return (T)DeepCopySlice(source, typeof(T));
+    }
+
+    private ISlice DeepCopySlice(ISlice source, Type type)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
-        var type = typeof(T);
+        if (source is ICloneable cloneable)
+        {
+            var cloned = cloneable.Clone();
+            if (cloned is ISlice sliceClone)
+            {
+                return sliceClone;
+            }
+        }
 
-        var isRecord = _isRecordCache.GetOrAdd(type, t =>
-            t.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance) != null ||
-            t.BaseType?.Name.Contains("Record") == true);
+        var isRecord = IsRecord(type);
 
         if (isRecord)
         {
             var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
             if (cloneMethod != null)
             {
-                return (T)cloneMethod.Invoke(source, null)!;
+                return (ISlice)cloneMethod.Invoke(source, null)!;
             }
         }
 
-        return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(source))!;
+        var json = JsonSerializer.Serialize(source, type);
+        var deserialized = JsonSerializer.Deserialize(json, type);
+        if (deserialized is ISlice slice)
+        {
+            return slice;
+        }
+
+        throw new InvalidOperationException($"Unable to deep copy slice of type {type.FullName}");
     }
 
+    private bool IsRecord(Type type)
+    {
+        return _isRecordCache.GetOrAdd(type, t =>
+            t.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance) != null ||
+            t.BaseType?.Name.Contains("Record") == true);
+    }
 
     public static AppState InitialState()
     {

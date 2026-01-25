@@ -11,7 +11,7 @@ namespace Blazor.ReduxTests.Dispatching;
 
 /// <summary>
 /// Tests pour Dispatcher
-/// 
+///
 /// Dispatcher => Gère les demandes d'actions synchrones
 /// Actions => Déclenchent des modifications de state via des reducers
 /// Reducers => Appliquent les transformations au state
@@ -172,7 +172,7 @@ public class DispatcherTests
 
         SetupDispatcher([new NameSlice { Name = "Test" }]);
 
-        Assert.Throws<ArgumentNullException>(() =>
+        Assert.Throws<InvalidOperationException>(() =>
             Dispatch<CounterSlice, CounterSliceAction>(action));
     }
 
@@ -195,6 +195,18 @@ public class DispatcherTests
         Assert.Equal(action, lastEvent.Action);
         Assert.Equal(new CounterSlice { Value = 10 }, lastEvent.NewState);
         Assert.Equal(new CounterSlice { Value = 0 }, lastEvent.PreviousState);
+    }
+
+    [Fact]
+    public void DispatcherBeAbleToComposeMultipleReducersForSameAction()
+    {
+        var action = new MultiCounterAction(5, "Composed");
+        var expected = new CounterSlice { Value = 5, Message = "Composed" };
+
+        SetupDispatcher();
+        Dispatch<CounterSlice, MultiCounterAction>(action);
+
+        Verify(expected);
     }
 
     private void SetupDispatcher(params ISlice[] slices)

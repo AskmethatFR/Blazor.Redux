@@ -4,6 +4,8 @@ using Blazor.Redux.DevTools.Extensions;
 using Blazor.Redux.Extensions;
 using Blazor.Redux.Sample.Client.Pages;
 using Blazor.Redux.Sample.Components;
+using Blazor.Redux.Sample.Client;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,11 +13,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
+builder.Services.AddSingleton<Blazor.Redux.Sample.Client.DispatchLogStore>();
+
+
 var initialCounterSlice = new CounterSlice { Value = 10 };
 builder.Services.AddBlazorRedux(new BlazorReduxOption()
 {
-    Slices = [initialCounterSlice]
-});
+    Slices = [initialCounterSlice, new EffectsSlice()],
+    Assembly = typeof(Blazor.Redux.Sample.Client._Imports).Assembly
+}.AddMiddleware<Blazor.Redux.Sample.Client.LoggingMiddleware>());
 
 builder.Services.AddReduxDevTools();
 

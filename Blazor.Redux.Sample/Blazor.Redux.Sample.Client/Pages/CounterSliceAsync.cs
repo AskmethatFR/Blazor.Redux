@@ -18,8 +18,7 @@ public record CounterReducer : IReducer<CounterSlice, IncrementAction>
 {
     public CounterSlice Reduce(CounterSlice slice, IncrementAction action)
     {
-        return new CounterSlice { Value = slice.Value + 1 };
+        return slice with { Value = slice.Value + 1 };
     }
 }
-
 
