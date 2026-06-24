@@ -43,11 +43,15 @@ public class Dispatcher : IDispatcher
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        // Run synchronously but keep the pipeline async-aware to avoid blocking the semaphore thread.
-        // If a middleware is truly async, this can still block; prefer AsyncDispatcher for I/O-bound work.
-        _dispatchQueue.ExecuteAsync(() => ExecutePipeline<TSlice, TAction>(action, isSyncDispatcher: true))
-            .GetAwaiter()
-            .GetResult();
+        // Use synchronous semaphore to avoid deadlock risk on Blazor synchronization context.
+        // Pipeline is expected to complete synchronously for sync dispatcher.
+        // Prefer AsyncDispatcher for I/O-bound middleware or async reducers.
+        _dispatchQueue.Execute(() =>
+        {
+            ExecutePipeline<TSlice, TAction>(action, isSyncDispatcher: true)
+                .GetAwaiter()
+                .GetResult();
+        });
     }
 
     private void ApplyReducers<TSlice, TAction>(IEnumerable<IReducer<TSlice, TAction>> reducers, TAction action)
