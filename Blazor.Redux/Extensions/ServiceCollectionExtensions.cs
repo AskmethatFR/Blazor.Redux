@@ -85,18 +85,30 @@ public static class ServiceCollectionExtensions
 
         foreach (var reducerType in reducerTypes)
         {
-            // Enregistrer les interfaces IReducer<,> (synchrones)
             var syncInterfaces = reducerType.GetInterfaces()
-                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IReducer<,>));
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IReducer<,>))
+                .ToList();
+
+            var asyncInterfaces = reducerType.GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncReducer<,>))
+                .ToList();
+
+            var syncKeys = syncInterfaces.Select(i => i.GetGenericArguments() switch { var a => (a[0], a[1]) }).ToHashSet();
+            var asyncKeys = asyncInterfaces.Select(i => i.GetGenericArguments() switch { var a => (a[0], a[1]) }).ToHashSet();
+
+            var duplicate = syncKeys.Intersect(asyncKeys).FirstOrDefault();
+            if (duplicate != default)
+            {
+                throw new InvalidOperationException(
+                    $"Reducer '{reducerType.Name}' implements both IReducer and IAsyncReducer " +
+                    $"for slice '{duplicate.Item1.Name}' and action '{duplicate.Item2.Name}'. " +
+                    "Use only one interface per (slice, action) pair.");
+            }
 
             foreach (var interfaceType in syncInterfaces)
             {
                 services.AddScoped(interfaceType, reducerType);
             }
-
-            // Enregistrer les interfaces IAsyncReducer<,> (asynchrones)
-            var asyncInterfaces = reducerType.GetInterfaces()
-                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncReducer<,>));
 
             foreach (var interfaceType in asyncInterfaces)
             {
