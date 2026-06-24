@@ -21,7 +21,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRootStateStore>(store);
         services.AddSingleton<IStateSnapshotApplier>(store);
         services.AddSingleton<IReduxSerializer>(provider =>
-            new ReduxJsonSerializer());
+        {
+            var assembly = options.Assembly ?? Assembly.GetCallingAssembly();
+            return new ReduxJsonSerializer(searchAssemblies: [assembly]);
+        });
         services.AddSingleton<DispatchQueue>();
         services.AddSingleton(provider => new ActionStream(options.ReplayLastAction));
         services.AddSingleton<IActionStream>(provider => provider.GetRequiredService<ActionStream>());
