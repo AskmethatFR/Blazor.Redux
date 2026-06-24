@@ -93,17 +93,7 @@ public static class ServiceCollectionExtensions
                 .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncReducer<,>))
                 .ToList();
 
-            var syncKeys = syncInterfaces.Select(i => i.GetGenericArguments() switch { var a => (a[0], a[1]) }).ToHashSet();
-            var asyncKeys = asyncInterfaces.Select(i => i.GetGenericArguments() switch { var a => (a[0], a[1]) }).ToHashSet();
-
-            var duplicate = syncKeys.Intersect(asyncKeys).FirstOrDefault();
-            if (duplicate != default)
-            {
-                throw new InvalidOperationException(
-                    $"Reducer '{reducerType.Name}' implements both IReducer and IAsyncReducer " +
-                    $"for slice '{duplicate.Item1.Name}' and action '{duplicate.Item2.Name}'. " +
-                    "Use only one interface per (slice, action) pair.");
-            }
+            ValidateReducerInterfaces(reducerType, syncInterfaces, asyncInterfaces);
 
             foreach (var interfaceType in syncInterfaces)
             {
@@ -117,6 +107,32 @@ public static class ServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    private static void ValidateReducerInterfaces(
+        Type reducerType,
+        IEnumerable<Type> syncInterfaces,
+        IEnumerable<Type> asyncInterfaces)
+    {
+        var syncKeys = syncInterfaces.Select(GetReducerKey).ToHashSet();
+        var asyncKeys = asyncInterfaces.Select(GetReducerKey).ToHashSet();
+
+        var duplicate = syncKeys.Intersect(asyncKeys).FirstOrDefault();
+        if (duplicate == default)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Reducer '{reducerType.Name}' implements both IReducer and IAsyncReducer " +
+            $"for slice '{duplicate.SliceType.Name}' and action '{duplicate.ActionType.Name}'. " +
+            "Use only one interface per (slice, action) pair.");
+    }
+
+    private static (Type SliceType, Type ActionType) GetReducerKey(Type reducerInterface)
+    {
+        var arguments = reducerInterface.GetGenericArguments();
+        return (arguments[0], arguments[1]);
     }
 
     /// <summary>
