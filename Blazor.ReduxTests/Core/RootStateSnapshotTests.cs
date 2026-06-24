@@ -30,7 +30,7 @@ public class RootStateSnapshotTests
     }
 }
 
-public sealed class MutableSlice : ISlice
+public record MutableSlice : ISlice
 {
     public int Value { get; set; }
 }
