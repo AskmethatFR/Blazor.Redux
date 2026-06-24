@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Blazor.Redux.Core;
 using Blazor.Redux.Interfaces;
@@ -8,9 +9,14 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
 {
     private readonly JsonSerializerOptions _options;
     private readonly IDictionary<string, Type> _typeMap;
+    private readonly Assembly[] _searchAssemblies;
     private readonly string _version;
 
-    public ReduxJsonSerializer(JsonSerializerOptions? options = null, IDictionary<string, Type>? typeMap = null, string version = "1")
+    public ReduxJsonSerializer(
+        JsonSerializerOptions? options = null,
+        IDictionary<string, Type>? typeMap = null,
+        Assembly[]? searchAssemblies = null,
+        string version = "1")
     {
         _options = options ?? new JsonSerializerOptions
         {
@@ -18,6 +24,7 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
         _typeMap = typeMap ?? new Dictionary<string, Type>();
+        _searchAssemblies = searchAssemblies ?? [];
         _version = version;
     }
 
@@ -96,20 +103,50 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
 
         if (_typeMap.TryGetValue(typeName, out var mapped))
         {
+            if (!requiredBase.IsAssignableFrom(mapped))
+            {
+                throw new InvalidOperationException($"Type '{typeName}' does not implement {requiredBase.Name}.");
+            }
             return mapped;
         }
 
-        var type = Type.GetType(typeName, throwOnError: false);
-        if (type is null)
+        foreach (var assembly in _searchAssemblies)
+        {
+            var type = assembly.GetType(typeName);
+            if (type == null)
+            {
+                // Try with just the type name (strip assembly suffix from AssemblyQualifiedName).
+                var simpleName = typeName.Split(',')[0].Trim();
+                type = assembly.GetType(simpleName);
+            }
+            if (type != null)
+            {
+                if (!requiredBase.IsAssignableFrom(type))
+                {
+                    throw new InvalidOperationException($"Type '{typeName}' does not implement {requiredBase.Name}.");
+                }
+                return type;
+            }
+        }
+
+        if (_searchAssemblies.Length > 0)
+        {
+            var known = string.Join(", ", _searchAssemblies.Select(a => a.GetName().Name));
+            throw new InvalidOperationException($"Unable to resolve type '{typeName}' from registered assemblies: {known}.");
+        }
+
+        // Fallback for backward compatibility when no assemblies are registered.
+        var fallback = Type.GetType(typeName, throwOnError: false);
+        if (fallback is null)
         {
             throw new InvalidOperationException($"Unable to resolve type '{typeName}'.");
         }
 
-        if (!requiredBase.IsAssignableFrom(type))
+        if (!requiredBase.IsAssignableFrom(fallback))
         {
             throw new InvalidOperationException($"Type '{typeName}' does not implement {requiredBase.Name}.");
         }
 
-        return type;
+        return fallback;
     }
 }
