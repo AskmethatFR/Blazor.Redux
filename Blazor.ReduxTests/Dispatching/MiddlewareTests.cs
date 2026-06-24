@@ -73,6 +73,26 @@ public class MiddlewareTests
     }
 
     [Fact]
+    public void SyncDispatcherRejectsAsyncMiddleware()
+    {
+        var services = new ServiceCollection();
+        services.AddBlazorRedux(new BlazorReduxOption
+        {
+            Slices = [new MiddlewareSlice { Value = 0 }],
+            Assembly = Assembly.GetExecutingAssembly(),
+            Middlewares = new List<Type> { typeof(AsyncMiddleware) }
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            dispatcher.Dispatch<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(3)));
+
+        Assert.Contains("Use IAsyncDispatcher", exception.Message);
+    }
+
+    [Fact]
     public void MiddlewareExceptionBubblesUpAndStopsReducer()
     {
         var services = new ServiceCollection();

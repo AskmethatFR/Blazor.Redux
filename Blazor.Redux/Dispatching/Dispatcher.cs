@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using Blazor.Redux.Core;
 using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
@@ -43,11 +44,7 @@ public class Dispatcher : IDispatcher
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        // Run synchronously but keep the pipeline async-aware to avoid blocking the semaphore thread.
-        // If a middleware is truly async, this can still block; prefer AsyncDispatcher for I/O-bound work.
-        _dispatchQueue.ExecuteAsync(() => ExecutePipeline<TSlice, TAction>(action, isSyncDispatcher: true))
-            .GetAwaiter()
-            .GetResult();
+        _dispatchQueue.Execute(() => ExecutePipeline<TSlice, TAction>(action));
     }
 
     private void ApplyReducers<TSlice, TAction>(IEnumerable<IReducer<TSlice, TAction>> reducers, TAction action)
@@ -80,48 +77,66 @@ public class Dispatcher : IDispatcher
         _store.UpdateSlice(newSlice);
     }
 
-    private Task ExecutePipeline<TSlice, TAction>(TAction action, bool isSyncDispatcher)
+    private void ExecutePipeline<TSlice, TAction>(TAction action)
         where TSlice : class, ISlice
         where TAction : class, IAction
     {
         var middlewares = _middlewares;
-        if (isSyncDispatcher)
-        {
-            // Guard: detect async middlewares to avoid deadlocks when called from sync dispatcher.
-            foreach (var mw in middlewares)
-            {
-                var invokeMethod = mw.GetType().GetMethod(nameof(IDispatchMiddleware.InvokeAsync));
-                if (invokeMethod != null && typeof(Task).IsAssignableFrom(invokeMethod.ReturnType))
-                {
-                    // We cannot reliably detect async-state-machine here, but we can flag presence.
-                    // Users should prefer AsyncDispatcher for I/O bound middlewares.
-                    // No throw to remain backward compatible; logging should be done by middleware itself.
-                    break;
-                }
-            }
-        }
-
-        Func<Task> terminal = () =>
+        void Terminal()
         {
             _actionStream.Publish(action);
             var reducers = _serviceProvider.GetServices<IReducer<TSlice, TAction>>();
             ApplyReducers(reducers, action);
-            return Task.CompletedTask;
-        };
+        }
 
         if (middlewares.Count == 0)
         {
-            return terminal();
+            Terminal();
+            return;
         }
 
-        Func<Task> pipeline = terminal;
-        for (var i = middlewares.Count - 1; i >= 0; i--)
+        var index = -1;
+        void Next()
         {
-            var current = middlewares[i];
-            var next = pipeline;
-            pipeline = () => current.InvokeAsync<TSlice, TAction>(action, next);
+            index++;
+            if (index == middlewares.Count)
+            {
+                Terminal();
+                return;
+            }
+
+            var current = middlewares[index];
+            var task = current.InvokeAsync<TSlice, TAction>(action, () =>
+            {
+                Next();
+                return Task.CompletedTask;
+            });
+
+            EnsureMiddlewareCompletedSynchronously(task, current);
         }
 
-        return pipeline();
+        Next();
+    }
+
+    private static void EnsureMiddlewareCompletedSynchronously(Task task, IDispatchMiddleware middleware)
+    {
+        if (task.IsCompletedSuccessfully)
+        {
+            return;
+        }
+
+        if (task.IsFaulted && task.Exception?.InnerException is { } innerException)
+        {
+            ExceptionDispatchInfo.Capture(innerException).Throw();
+        }
+
+        if (task.IsCanceled)
+        {
+            throw new TaskCanceledException(task);
+        }
+
+        throw new InvalidOperationException(
+            $"Middleware '{middleware.GetType().Name}' returned an incomplete task from sync dispatcher. " +
+            "Use IAsyncDispatcher for asynchronous middleware.");
     }
 }
