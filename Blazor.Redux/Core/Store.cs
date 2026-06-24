@@ -7,7 +7,7 @@ using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Core;
 
-public record Store : IObservableStore, IRootStateStore, IStateSnapshotApplier, IDisposable
+public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApplier, IDisposable
 {
     private readonly SnapshotStrategy _snapshotStrategy;
 
