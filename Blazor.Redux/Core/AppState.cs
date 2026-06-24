@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Reflection;
-using System.Text.Json;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Core;
@@ -8,7 +6,6 @@ namespace Blazor.Redux.Core;
 internal record AppState
 {
     private readonly IDictionary<Type, ISlice> _slices = new Dictionary<Type, ISlice>();
-    private readonly ConcurrentDictionary<Type, bool> _isRecordCache = new();
 
     public T? GetSlice<T>() where T : class, ISlice
     {
@@ -76,6 +73,12 @@ internal record AppState
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
+        var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
+        if (cloneMethod != null)
+        {
+            return (ISlice)cloneMethod.Invoke(source, null)!;
+        }
+
         if (source is ICloneable cloneable)
         {
             var cloned = cloneable.Clone();
@@ -85,32 +88,8 @@ internal record AppState
             }
         }
 
-        var isRecord = IsRecord(type);
-
-        if (isRecord)
-        {
-            var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
-            if (cloneMethod != null)
-            {
-                return (ISlice)cloneMethod.Invoke(source, null)!;
-            }
-        }
-
-        var json = JsonSerializer.Serialize(source, type);
-        var deserialized = JsonSerializer.Deserialize(json, type);
-        if (deserialized is ISlice slice)
-        {
-            return slice;
-        }
-
-        throw new InvalidOperationException($"Unable to deep copy slice of type {type.FullName}");
-    }
-
-    private bool IsRecord(Type type)
-    {
-        return _isRecordCache.GetOrAdd(type, t =>
-            t.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance) != null ||
-            t.BaseType?.Name.Contains("Record") == true);
+        throw new InvalidOperationException(
+            $"Slice type '{type.FullName}' must be a record or implement ICloneable for deep copy.");
     }
 
     public static AppState InitialState()
