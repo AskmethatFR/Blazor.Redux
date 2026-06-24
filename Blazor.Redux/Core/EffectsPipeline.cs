@@ -56,7 +56,7 @@ public sealed class EffectsPipeline : IDisposable
         {
             var observable = Observable.Defer(() => BuildEffectObservable(effect, actions, state))
                 .Do(_ => { }, ex => _logger?.LogError(ex, "Effect {EffectType} failed", effect.GetType().Name))
-                .Retry();
+                .Retry(3);
             if (_effectsScheduler != null)
             {
                 observable = observable.ObserveOn(_effectsScheduler);
