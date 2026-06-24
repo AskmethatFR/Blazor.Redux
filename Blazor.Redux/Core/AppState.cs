@@ -22,10 +22,7 @@ internal record AppState
 
     public AppState AddSlice(ISlice slice)
     {
-        if (slice == null)
-        {
-            throw new NullReferenceException();
-        }
+        ArgumentNullException.ThrowIfNull(slice);
 
         var sliceType = slice.GetType();
         _slices.Add(sliceType, DeepCopySlice(slice, sliceType));
@@ -34,14 +31,11 @@ internal record AppState
 
     public T UpdateSlice<T>(T value) where T : class, ISlice
     {
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(value);
 
         if (!_slices.ContainsKey(typeof(T)))
         {
-            throw new InvalidOperationException($"Le slice de type {typeof(T).Name} n'existe pas dans l'état.");
+            throw new InvalidOperationException($"Slice type '{typeof(T).Name}' is not registered in the store.");
         }
 
         var deepCopy = DeepCopy(value);

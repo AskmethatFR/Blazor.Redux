@@ -113,18 +113,7 @@ public class AppStateTests
     [Fact]
     public void NullSlice()
     {
-        try
-        {
-            Slice slice = null!;
-            AddSlice(slice);
-
-            Verify(slice);
-            Assert.Fail("Adding null slice is prohibited");
-        }
-        catch (NullReferenceException)
-        {
-            Assert.True(true);
-        }
+        Assert.Throws<ArgumentNullException>(() => AddSlice((Slice)null!));
     }
 
     [Fact]
