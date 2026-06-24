@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
 using System.Reflection;
-using System.Text.Json;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Core;
@@ -8,7 +6,6 @@ namespace Blazor.Redux.Core;
 internal record AppState
 {
     private readonly IDictionary<Type, ISlice> _slices = new Dictionary<Type, ISlice>();
-    private readonly ConcurrentDictionary<Type, bool> _isRecordCache = new();
 
     public T? GetSlice<T>() where T : class, ISlice
     {
@@ -22,10 +19,7 @@ internal record AppState
 
     public AppState AddSlice(ISlice slice)
     {
-        if (slice == null)
-        {
-            throw new NullReferenceException();
-        }
+        ArgumentNullException.ThrowIfNull(slice);
 
         var sliceType = slice.GetType();
         _slices.Add(sliceType, DeepCopySlice(slice, sliceType));
@@ -34,14 +28,11 @@ internal record AppState
 
     public T UpdateSlice<T>(T value) where T : class, ISlice
     {
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(value);
 
         if (!_slices.ContainsKey(typeof(T)))
         {
-            throw new InvalidOperationException($"Le slice de type {typeof(T).Name} n'existe pas dans l'état.");
+            throw new InvalidOperationException($"Slice type '{typeof(T).Name}' is not registered in the store.");
         }
 
         var deepCopy = DeepCopy(value);
@@ -76,6 +67,12 @@ internal record AppState
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
+        var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
+        if (cloneMethod != null)
+        {
+            return (ISlice)cloneMethod.Invoke(source, null)!;
+        }
+
         if (source is ICloneable cloneable)
         {
             var cloned = cloneable.Clone();
@@ -85,32 +82,8 @@ internal record AppState
             }
         }
 
-        var isRecord = IsRecord(type);
-
-        if (isRecord)
-        {
-            var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
-            if (cloneMethod != null)
-            {
-                return (ISlice)cloneMethod.Invoke(source, null)!;
-            }
-        }
-
-        var json = JsonSerializer.Serialize(source, type);
-        var deserialized = JsonSerializer.Deserialize(json, type);
-        if (deserialized is ISlice slice)
-        {
-            return slice;
-        }
-
-        throw new InvalidOperationException($"Unable to deep copy slice of type {type.FullName}");
-    }
-
-    private bool IsRecord(Type type)
-    {
-        return _isRecordCache.GetOrAdd(type, t =>
-            t.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance) != null ||
-            t.BaseType?.Name.Contains("Record") == true);
+        throw new InvalidOperationException(
+            $"Slice type '{type.FullName}' must be a record or implement ICloneable for deep copy.");
     }
 
     public static AppState InitialState()
