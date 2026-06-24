@@ -36,6 +36,7 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
     private readonly Subject<(Type SliceType, ISlice Slice)> _sliceChanges = new();
     private readonly BehaviorSubject<RootStateSnapshot> _stateChanges;
     private readonly object _stateLock = new();
+    private readonly object _sliceChangesLock = new();
 
     public TSlice? GetSlice<TSlice>() where TSlice : class, ISlice =>
         GetSliceInternal<TSlice>();
@@ -59,23 +60,36 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
             snapshot = CreateSnapshot();
         }
 
-        _sliceChanges.OnNext((typeof(TSlice), updatedSlice));
+        lock (_sliceChangesLock)
+        {
+            _sliceChanges.OnNext((typeof(TSlice), updatedSlice));
+        }
         _stateChanges.OnNext(snapshot);
         return updatedSlice;
     }
 
     public IObservable<TSlice> ObserveSlice<TSlice>() where TSlice : class, ISlice
     {
-        var currentSlice = GetSlice<TSlice>();
-        
-        var observable = _sliceChanges
-            .Where(change => change.SliceType == typeof(TSlice))
-            .Select(change => (TSlice)change.Slice);
+        return Observable.Create<TSlice>(observer =>
+        {
+            var currentSlice = GetSlice<TSlice>();
 
-        // StartWith seulement si le slice existe déjà
-        return currentSlice != null 
-            ? observable.StartWith(currentSlice)
-            : observable;
+            IDisposable subscription;
+            lock (_sliceChangesLock)
+            {
+                subscription = _sliceChanges
+                    .Where(change => change.SliceType == typeof(TSlice))
+                    .Select(change => (TSlice)change.Slice)
+                    .Subscribe(observer);
+
+                if (currentSlice != null)
+                {
+                    observer.OnNext(currentSlice);
+                }
+            }
+
+            return subscription;
+        });
     }
 
     public IObservable<Unit> ObserveAnyChange()
@@ -137,9 +151,12 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
                 .ToList();
         }
 
-        foreach (var update in sliceUpdates)
+        lock (_sliceChangesLock)
         {
-            _sliceChanges.OnNext(update);
+            foreach (var update in sliceUpdates)
+            {
+                _sliceChanges.OnNext(update);
+            }
         }
 
         _stateChanges.OnNext(updatedSnapshot);
