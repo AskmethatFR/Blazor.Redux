@@ -88,18 +88,20 @@ public static class ServiceCollectionExtensions
 
         foreach (var reducerType in reducerTypes)
         {
-            // Enregistrer les interfaces IReducer<,> (synchrones)
             var syncInterfaces = reducerType.GetInterfaces()
-                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IReducer<,>));
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IReducer<,>))
+                .ToList();
+
+            var asyncInterfaces = reducerType.GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncReducer<,>))
+                .ToList();
+
+            ValidateReducerInterfaces(reducerType, syncInterfaces, asyncInterfaces);
 
             foreach (var interfaceType in syncInterfaces)
             {
                 services.AddScoped(interfaceType, reducerType);
             }
-
-            // Enregistrer les interfaces IAsyncReducer<,> (asynchrones)
-            var asyncInterfaces = reducerType.GetInterfaces()
-                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAsyncReducer<,>));
 
             foreach (var interfaceType in asyncInterfaces)
             {
@@ -108,6 +110,32 @@ public static class ServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    private static void ValidateReducerInterfaces(
+        Type reducerType,
+        IEnumerable<Type> syncInterfaces,
+        IEnumerable<Type> asyncInterfaces)
+    {
+        var syncKeys = syncInterfaces.Select(GetReducerKey).ToHashSet();
+        var asyncKeys = asyncInterfaces.Select(GetReducerKey).ToHashSet();
+
+        var duplicate = syncKeys.Intersect(asyncKeys).FirstOrDefault();
+        if (duplicate == default)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Reducer '{reducerType.Name}' implements both IReducer and IAsyncReducer " +
+            $"for slice '{duplicate.SliceType.Name}' and action '{duplicate.ActionType.Name}'. " +
+            "Use only one interface per (slice, action) pair.");
+    }
+
+    private static (Type SliceType, Type ActionType) GetReducerKey(Type reducerInterface)
+    {
+        var arguments = reducerInterface.GetGenericArguments();
+        return (arguments[0], arguments[1]);
     }
 
     /// <summary>
