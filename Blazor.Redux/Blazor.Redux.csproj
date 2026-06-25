@@ -5,6 +5,8 @@
         <LangVersion>latestmajor</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
 
         <!-- Métadonnées NuGet -->
         <PackageId>Blazor.Redux</PackageId>
@@ -49,7 +51,6 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.2" />
     </ItemGroup>
-
 
     <ItemGroup>
       <Folder Include="Core\Events\" />

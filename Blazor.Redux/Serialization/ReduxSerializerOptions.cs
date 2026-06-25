@@ -2,8 +2,15 @@ using System.Text.Json;
 
 namespace Blazor.Redux.Serialization;
 
+/// <summary>
+/// Configuration options for <see cref="ReduxJsonSerializer"/>.
+/// All properties are init-only for immutability after construction.
+/// </summary>
 public sealed record ReduxSerializerOptions
 {
+    /// <summary>
+    /// JSON serialization options (default: camelCase, case-insensitive).
+    /// </summary>
     public JsonSerializerOptions JsonOptions { get; init; } = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true,

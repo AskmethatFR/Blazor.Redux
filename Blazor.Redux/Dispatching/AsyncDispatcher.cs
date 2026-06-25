@@ -4,6 +4,13 @@ using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Dispatching;
 
+/// <summary>
+/// Asynchronous dispatcher that sends actions through the Redux pipeline
+/// with support for async reducers and cancellation.
+/// Actions are serialized through a <see cref="DispatchQueue"/>, run through
+/// registered middlewares, published to the action stream, applied to
+/// synchronous reducers first, then async reducers.
+/// </summary>
 public class AsyncDispatcher : IAsyncDispatcher
 {
     private readonly Store _store;
@@ -14,6 +21,9 @@ public class AsyncDispatcher : IAsyncDispatcher
     private readonly IStoreEventPublisher? _eventPublisher;
     private readonly IReadOnlyList<IDispatchMiddleware> _middlewares;
 
+    /// <summary>
+    /// Initializes the async dispatcher.
+    /// </summary>
     public AsyncDispatcher(
         Store store,
         IReducerRegistry reducerRegistry,
@@ -34,6 +44,9 @@ public class AsyncDispatcher : IAsyncDispatcher
         _effectsPipeline.EnsureStarted();
     }
 
+    /// <summary>
+    /// Dispatches an action asynchronously with optional cancellation.
+    /// </summary>
     public async Task DispatchAsync<TSlice, TAction>(TAction action, CancellationToken cancellationToken = default)
         where TSlice : class, ISlice
         where TAction : class, IAction

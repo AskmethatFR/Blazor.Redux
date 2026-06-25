@@ -63,10 +63,29 @@ internal record AppState
         return (T)DeepCopySlice(source, typeof(T));
     }
 
+    /// <summary>
+    /// Creates a deep copy of a slice instance.
+    /// First tries the compiler-generated record clone method ("&lt;Clone&gt;$") —
+    /// this is a C# compiler implementation detail that generates a protected
+    /// member on all record types. Falls back to <see cref="ICloneable"/> if
+    /// the record method is not found.
+    /// Slices must be records or implement <see cref="ICloneable"/> for deep copy.
+    /// </summary>
+    /// <param name="source">Source slice to copy.</param>
+    /// <param name="type">Runtime type of the slice.</param>
+    /// <returns>Deep copy of the slice.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if neither record clone method nor <see cref="ICloneable"/> is available.
+    /// </exception>
     private ISlice DeepCopySlice(ISlice source, Type type)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
+        // Detect the C#-compiler-generated record clone method "<Clone>$".
+        // This is emitted for all record types and performs a memberwise copy
+        // (the object equivalent of `with { }`). It relies on a compiler
+        // implementation detail that is stable across .NET 6+ but is not
+        // part of any ECMA/ISO specification.
         var cloneMethod = type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance);
         if (cloneMethod != null)
         {

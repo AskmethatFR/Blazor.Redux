@@ -4,15 +4,22 @@ using Blazor.Redux.Core.Events;
 using Blazor.Redux.Dispatching;
 using Blazor.Redux.Interfaces;
 using Blazor.Redux.Serialization;
-using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Blazor.Redux.Extensions;
 
+/// <summary>
+/// Extension methods for registering Blazor.Redux services in the DI container.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
-    
-
+    /// <summary>
+    /// Registers Blazor.Redux services (store, dispatchers, reducers, effects, serializers)
+    /// in the service collection using the provided options.
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="options">Configuration options including slices, assembly, and middleware.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddBlazorRedux(this IServiceCollection services, BlazorReduxOption options)
     {
         var store = Store.Init(options.SnapshotStrategy, options.Slices);
@@ -68,11 +75,13 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Scanne une assembly pour découvrir et enregistrer automatiquement tous les reducers synchrones et asynchrones
+    /// Scans an assembly and registers all reducers (sync and async) in DI.
+    /// A reducer cannot implement both <see cref="IReducer{TS,TA}"/> and
+    /// <see cref="IAsyncReducer{TS,TA}"/> for the same (slice, action) pair.
     /// </summary>
-    /// <param name="services">Collection de services</param>
-    /// <param name="assembly">Assembly à scanner (utilise l'assembly appelante si null)</param>
-    /// <returns>Collection de services pour le chaînage</returns>
+    /// <param name="services">Service collection.</param>
+    /// <param name="assembly">Assembly to scan (uses calling assembly if null).</param>
+    /// <returns>Service collection for chaining.</returns>
     public static IServiceCollection AddReducers(
         this IServiceCollection services,
         Assembly? assembly = null)
@@ -140,11 +149,11 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Scanne une assembly pour découvrir et enregistrer automatiquement tous les effects
+    /// Scans an assembly and registers all effects (<see cref="IEffect"/> implementations) in DI.
     /// </summary>
-    /// <param name="services">Collection de services</param>
-    /// <param name="assembly">Assembly à scanner (utilise l'assembly appelante si null)</param>
-    /// <returns>Collection de services pour le chaînage</returns>
+    /// <param name="services">Service collection.</param>
+    /// <param name="assembly">Assembly to scan (uses calling assembly if null).</param>
+    /// <returns>Service collection for chaining.</returns>
     public static IServiceCollection AddEffects(
         this IServiceCollection services,
         Assembly? assembly = null)
