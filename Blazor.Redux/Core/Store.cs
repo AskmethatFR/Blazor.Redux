@@ -1,24 +1,19 @@
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Linq;
-using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Core;
 
 public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApplier, IDisposable
 {
+    private readonly StoreStateManager _stateManager;
     private readonly SnapshotStrategy _snapshotStrategy;
 
     private Store(SnapshotStrategy snapshotStrategy, ISlice[] slices)
     {
         _snapshotStrategy = snapshotStrategy;
-        foreach (var slice in slices)
-        {
-            _state = _state.AddSlice(slice);
-        }
-
+        _stateManager = new StoreStateManager(slices);
         _stateChanges = new BehaviorSubject<RootStateSnapshot>(CreateSnapshot());
     }
 
@@ -32,33 +27,16 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
         return new Store(snapshotStrategy, slices);
     }
 
-    private AppState _state = AppState.InitialState();
     private readonly Subject<(Type SliceType, ISlice Slice)> _sliceChanges = new();
     private readonly BehaviorSubject<RootStateSnapshot> _stateChanges;
-    private readonly object _stateLock = new();
     private readonly object _sliceChangesLock = new();
 
     public TSlice? GetSlice<TSlice>() where TSlice : class, ISlice =>
-        GetSliceInternal<TSlice>();
-
-    private TSlice? GetSliceInternal<TSlice>() where TSlice : class, ISlice
-    {
-        lock (_stateLock)
-        {
-            return _state.GetSlice<TSlice>();
-        }
-    }
+        _stateManager.GetSlice<TSlice>();
 
     public TSlice UpdateSlice<TSlice>(TSlice update) where TSlice : class, ISlice
     {
-        RootStateSnapshot snapshot;
-        TSlice updatedSlice;
-
-        lock (_stateLock)
-        {
-            updatedSlice = _state.UpdateSlice(update);
-            snapshot = CreateSnapshot();
-        }
+        var (updatedSlice, snapshot) = _stateManager.UpdateSliceAndSnapshot(update, _snapshotStrategy);
 
         lock (_sliceChangesLock)
         {
@@ -81,11 +59,11 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
                     .Where(change => change.SliceType == typeof(TSlice))
                     .Select(change => (TSlice)change.Slice)
                     .Subscribe(observer);
+            }
 
-                if (currentSlice != null)
-                {
-                    observer.OnNext(currentSlice);
-                }
+            if (currentSlice != null)
+            {
+                observer.OnNext(currentSlice);
             }
 
             return subscription;
@@ -108,48 +86,8 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        var currentSnapshot = _state.GetAllSlicesSnapshot(SnapshotStrategy.Reference);
-        if (strictValidation)
-        {
-            var currentKeys = new HashSet<Type>(currentSnapshot.Keys);
-            var incomingKeys = new HashSet<Type>(snapshot.Slices.Keys);
-            if (!currentKeys.SetEquals(incomingKeys))
-            {
-                var missing = string.Join(", ", currentKeys.Except(incomingKeys).Select(t => t.Name));
-                var extra = string.Join(", ", incomingKeys.Except(currentKeys).Select(t => t.Name));
-                throw new InvalidOperationException(
-                    $"Snapshot slice set mismatch. Missing: [{missing}] Extra: [{extra}].");
-            }
-        }
-        else
-        {
-            foreach (var type in snapshot.Slices.Keys)
-            {
-                if (!currentSnapshot.ContainsKey(type))
-                {
-                    throw new InvalidOperationException($"Snapshot contains unknown slice type '{type.Name}'.");
-                }
-            }
-        }
-
-        RootStateSnapshot updatedSnapshot;
-        IReadOnlyList<(Type SliceType, ISlice Slice)> sliceUpdates;
-
-        lock (_stateLock)
-        {
-            var newState = AppState.InitialState();
-            foreach (var slice in snapshot.Slices.Values)
-            {
-                newState = newState.AddSlice(slice);
-            }
-
-            _state = newState;
-            updatedSnapshot = CreateSnapshot();
-
-            sliceUpdates = snapshot.Slices
-                .Select(entry => (entry.Key, entry.Value))
-                .ToList();
-        }
+        var (updatedSnapshot, sliceUpdates) =
+            _stateManager.ValidateAndReplaceAllSlices(snapshot, strictValidation, _snapshotStrategy);
 
         lock (_sliceChangesLock)
         {
@@ -170,6 +108,6 @@ public sealed class Store : IObservableStore, IRootStateStore, IStateSnapshotApp
 
     private RootStateSnapshot CreateSnapshot()
     {
-        return new RootStateSnapshot(_state.GetAllSlicesSnapshot(_snapshotStrategy));
+        return _stateManager.CreateSnapshot(_snapshotStrategy);
     }
 }

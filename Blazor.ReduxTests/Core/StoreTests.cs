@@ -27,21 +27,8 @@ public class StoreTests
     [Fact]
     private void ExceptionIfSliceIsNotFound()
     {
-        try
-        {
-            Act(new StoreSlice()
-            {
-                Name = "toto"
-            }, new StoreSlice2()
-            {
-                Value = "titi"
-            });
-            Assert.Fail("Adding unknown slice is prohibited");
-        }
-        catch (InvalidOperationException)
-        {
-            Assert.True(true);
-        }
+        Assert.Throws<InvalidOperationException>(() =>
+            Act(new StoreSlice { Name = "toto" }, new StoreSlice2 { Value = "titi" }));
     }
 
     private void InitStore(ISlice slice)
