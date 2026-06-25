@@ -5,6 +5,11 @@ using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Serialization;
 
+/// <summary>
+/// Default JSON serializer for Redux actions and state.
+/// Uses System.Text.Json with configurable options.
+/// Resolves types by assembly-qualified name with fallback via registered assemblies.
+/// </summary>
 public sealed class ReduxJsonSerializer : IReduxSerializer
 {
     private readonly JsonSerializerOptions _options;
@@ -12,6 +17,13 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
     private readonly Assembly[] _searchAssemblies;
     private readonly string _version;
 
+    /// <summary>
+    /// Initializes the serializer.
+    /// </summary>
+    /// <param name="options">Optional JSON serializer options (default: camelCase, case-insensitive).</param>
+    /// <param name="typeMap">Optional mapping from serialized type name to CLR type (for renamed types).</param>
+    /// <param name="searchAssemblies">Assemblies to search when resolving type names.</param>
+    /// <param name="version">Serializer version embedded in serialized data for future-proofing.</param>
     public ReduxJsonSerializer(
         JsonSerializerOptions? options = null,
         IDictionary<string, Type>? typeMap = null,
@@ -28,6 +40,9 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
         _version = version;
     }
 
+    /// <summary>
+    /// Serializes an action to its portable representation.
+    /// </summary>
     public SerializedAction SerializeAction(IAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -38,6 +53,9 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
         return new SerializedAction(typeName, data, _version);
     }
 
+    /// <summary>
+    /// Serializes a root state snapshot to its portable representation.
+    /// </summary>
     public SerializedState SerializeState(RootStateSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -55,6 +73,9 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
         return new SerializedState(slices, _version);
     }
 
+    /// <summary>
+    /// Deserializes an action from its JSON representation.
+    /// </summary>
     public IAction DeserializeAction(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
@@ -71,6 +92,9 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
             ?? throw new InvalidOperationException("Failed to deserialize action data."));
     }
 
+    /// <summary>
+    /// Deserializes a root state snapshot from its JSON representation.
+    /// </summary>
     public RootStateSnapshot DeserializeState(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
@@ -94,6 +118,15 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
         return new RootStateSnapshot(slices);
     }
 
+    /// <summary>
+    /// Resolves a serialized type name to a CLR <see cref="Type"/>.
+    /// Checks the type map first, then searches registered assemblies,
+    /// and finally falls back to <see cref="Type.GetType(string)"/>.
+    /// Validates that the resolved type implements the required base type.
+    /// </summary>
+    /// <param name="typeName">Serialized type name (typically AssemblyQualifiedName).</param>
+    /// <param name="requiredBase">Required base type or interface for validation.</param>
+    /// <returns>Resolved CLR type.</returns>
     private Type ResolveType(string typeName, Type requiredBase)
     {
         if (string.IsNullOrWhiteSpace(typeName))

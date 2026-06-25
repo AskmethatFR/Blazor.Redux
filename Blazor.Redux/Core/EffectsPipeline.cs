@@ -7,6 +7,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Blazor.Redux.Core;
 
+/// <summary>
+/// Manages subscription and lifecycle of all registered effects.
+/// Effects observe the action stream and root state, and produce
+/// effect actions that are dispatched back into the Redux pipeline.
+/// Supports retry on failure, custom scheduling, and cancellation strategies.
+/// Thread-safe: can be started exactly once.
+/// </summary>
 public sealed class EffectsPipeline : IDisposable
 {
     private readonly IActionStream _actionStream;
@@ -19,6 +26,16 @@ public sealed class EffectsPipeline : IDisposable
     private readonly ILogger<EffectsPipeline>? _logger;
     private int _started;
 
+    /// <summary>
+    /// Initializes the effects pipeline.
+    /// </summary>
+    /// <param name="actionStream">Stream of dispatched actions.</param>
+    /// <param name="rootStateStore">Root state store to observe state changes.</param>
+    /// <param name="scopeFactory">Service scope factory for creating dispatcher scopes.</param>
+    /// <param name="effects">Collection of registered effects.</param>
+    /// <param name="effectsScheduler">Optional Rx scheduler for effect execution.</param>
+    /// <param name="cancellationStrategy">Strategy for cancelling effect operations.</param>
+    /// <param name="logger">Optional logger for effect errors.</param>
     public EffectsPipeline(
         IActionStream actionStream,
         IRootStateStore rootStateStore,
@@ -37,6 +54,9 @@ public sealed class EffectsPipeline : IDisposable
         _logger = logger;
     }
 
+    /// <summary>
+    /// Starts all effects. Safe to call multiple times — only the first call takes effect.
+    /// </summary>
     public void EnsureStarted()
     {
         if (Interlocked.Exchange(ref _started, 1) == 1)

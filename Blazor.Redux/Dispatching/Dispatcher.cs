@@ -5,6 +5,12 @@ using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Dispatching;
 
+/// <summary>
+/// Synchronous dispatcher that sends actions through the Redux pipeline.
+/// Actions are serialized through a <see cref="DispatchQueue"/>, run through
+/// registered middlewares, published to the action stream, and then applied
+/// to synchronous reducers. Middleware tasks must complete synchronously.
+/// </summary>
 public class Dispatcher : IDispatcher
 {
     private readonly Store _store;
@@ -16,6 +22,9 @@ public class Dispatcher : IDispatcher
 
     private readonly IReadOnlyList<IDispatchMiddleware> _middlewares;
 
+    /// <summary>
+    /// Initializes the synchronous dispatcher.
+    /// </summary>
     public Dispatcher(
         Store store,
         IReducerRegistry reducerRegistry,
@@ -36,6 +45,9 @@ public class Dispatcher : IDispatcher
         _effectsPipeline.EnsureStarted();
     }
 
+    /// <summary>
+    /// Dispatches an action synchronously for the given slice type.
+    /// </summary>
     public void Dispatch<TSlice, TAction>(TAction action)
         where TSlice : class, ISlice
         where TAction : class, IAction
