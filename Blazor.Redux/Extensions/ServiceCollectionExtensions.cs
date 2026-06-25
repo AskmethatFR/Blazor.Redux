@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
             options.EffectsScheduler,
             options.EffectsCancellationStrategy,
             provider.GetService<Microsoft.Extensions.Logging.ILogger<EffectsPipeline>>()));
+        services.AddScoped<IReducerRegistry, ReducerRegistry>();
         services.AddScoped<IDispatcher, Dispatcher>();
         services.AddScoped<IAsyncDispatcher, AsyncDispatcher>();
         services.AddScoped<IStoreEventPublisher, StoreEventPublisher>();

@@ -1,15 +1,13 @@
-using System.Linq;
 using Blazor.Redux.Core;
 using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Blazor.Redux.Dispatching;
 
 public class AsyncDispatcher : IAsyncDispatcher
 {
     private readonly Store _store;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IReducerRegistry _reducerRegistry;
     private readonly DispatchQueue _dispatchQueue;
     private readonly ActionStream _actionStream;
     private readonly EffectsPipeline _effectsPipeline;
@@ -18,7 +16,7 @@ public class AsyncDispatcher : IAsyncDispatcher
 
     public AsyncDispatcher(
         Store store,
-        IServiceProvider serviceProvider,
+        IReducerRegistry reducerRegistry,
         DispatchQueue dispatchQueue,
         ActionStream actionStream,
         EffectsPipeline effectsPipeline,
@@ -26,7 +24,7 @@ public class AsyncDispatcher : IAsyncDispatcher
         IEnumerable<IDispatchMiddleware> middlewares)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _reducerRegistry = reducerRegistry ?? throw new ArgumentNullException(nameof(reducerRegistry));
         _dispatchQueue = dispatchQueue ?? throw new ArgumentNullException(nameof(dispatchQueue));
         _actionStream = actionStream ?? throw new ArgumentNullException(nameof(actionStream));
         _effectsPipeline = effectsPipeline ?? throw new ArgumentNullException(nameof(effectsPipeline));
@@ -51,7 +49,7 @@ public class AsyncDispatcher : IAsyncDispatcher
         where TSlice : class, ISlice
         where TAction : class, IAction
     {
-        var reducers = _serviceProvider.GetServices<IReducer<TSlice, TAction>>();
+        var reducers = _reducerRegistry.GetReducers<TSlice, TAction>();
         ApplyReducers(reducers, action);
     }
 
@@ -117,7 +115,6 @@ public class AsyncDispatcher : IAsyncDispatcher
                 Action: action
             ));
         }
-        // Le dispatcher se contente de mettre à jour le store
         _store.UpdateSlice(newSlice);
     }
 
@@ -131,7 +128,7 @@ public class AsyncDispatcher : IAsyncDispatcher
             cancellationToken.ThrowIfCancellationRequested();
             _actionStream.Publish(action);
             ApplySyncReducerIfExists<TSlice, TAction>(action);
-            var asyncReducers = _serviceProvider.GetServices<IAsyncReducer<TSlice, TAction>>();
+            var asyncReducers = _reducerRegistry.GetAsyncReducers<TSlice, TAction>();
             await ApplyAsyncReducers(asyncReducers, action);
         };
 
