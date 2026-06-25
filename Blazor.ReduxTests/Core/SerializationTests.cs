@@ -12,9 +12,8 @@ public class SerializationTests
     [Fact]
     public void SerializerRoundTripsAction()
     {
-        var serializer = new ReduxJsonSerializer();
+        var serializer = new ReduxJsonSerializer(searchAssemblies: [TestAssembly]);
         var action = new TestAction(7, "payload");
-
         var json = System.Text.Json.JsonSerializer.Serialize(serializer.SerializeAction(action));
         var deserialized = serializer.DeserializeAction(json);
 
@@ -27,7 +26,7 @@ public class SerializationTests
     [Fact]
     public void SerializerRoundTripsState()
     {
-        var serializer = new ReduxJsonSerializer();
+        var serializer = new ReduxJsonSerializer(searchAssemblies: [TestAssembly]);
         var slices = new Dictionary<Type, ISlice>
         {
             { typeof(TestSliceA), new TestSliceA { Value = 5 } },

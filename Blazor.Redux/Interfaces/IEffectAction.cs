@@ -7,9 +7,7 @@ namespace Blazor.Redux.Interfaces;
 /// </summary>
 public interface IEffectAction
 {
-    /// <summary>
-    /// Dispatches the wrapped action through the given dispatcher.
-    /// </summary>
-    /// <param name="dispatcher">The dispatcher to use for dispatch.</param>
     void Dispatch(IDispatcher dispatcher);
+
+    Task DispatchAsync(IAsyncDispatcher dispatcher);
 }
