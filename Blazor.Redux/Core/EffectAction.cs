@@ -24,4 +24,12 @@ public sealed record EffectAction<TSlice, TAction>(TAction Action) : IEffectActi
 
         dispatcher.Dispatch<TSlice, TAction>(Action);
     }
+
+    public Task DispatchAsync(IAsyncDispatcher dispatcher)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(Action);
+
+        return dispatcher.DispatchAsync<TSlice, TAction>(Action);
+    }
 }

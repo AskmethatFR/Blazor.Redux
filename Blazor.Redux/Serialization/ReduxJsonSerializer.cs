@@ -162,24 +162,14 @@ public sealed class ReduxJsonSerializer : IReduxSerializer
             }
         }
 
-        if (_searchAssemblies.Length > 0)
+        if (_searchAssemblies.Length == 0)
         {
-            var known = string.Join(", ", _searchAssemblies.Select(a => a.GetName().Name));
-            throw new InvalidOperationException($"Unable to resolve type '{typeName}' from registered assemblies: {known}.");
+            throw new InvalidOperationException(
+                $"Unable to resolve type '{typeName}'. No search assemblies configured. " +
+                "Provide at least one search assembly via the 'searchAssemblies' parameter.");
         }
 
-        // Fallback for backward compatibility when no assemblies are registered.
-        var fallback = Type.GetType(typeName, throwOnError: false);
-        if (fallback is null)
-        {
-            throw new InvalidOperationException($"Unable to resolve type '{typeName}'.");
-        }
-
-        if (!requiredBase.IsAssignableFrom(fallback))
-        {
-            throw new InvalidOperationException($"Type '{typeName}' does not implement {requiredBase.Name}.");
-        }
-
-        return fallback;
+        var known = string.Join(", ", _searchAssemblies.Select(a => a.GetName().Name));
+        throw new InvalidOperationException($"Unable to resolve type '{typeName}' from registered assemblies: {known}.");
     }
 }

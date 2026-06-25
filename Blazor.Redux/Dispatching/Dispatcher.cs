@@ -5,12 +5,6 @@ using Blazor.Redux.Interfaces;
 
 namespace Blazor.Redux.Dispatching;
 
-/// <summary>
-/// Synchronous dispatcher that sends actions through the Redux pipeline.
-/// Actions are serialized through a <see cref="DispatchQueue"/>, run through
-/// registered middlewares, published to the action stream, and then applied
-/// to synchronous reducers. Middleware tasks must complete synchronously.
-/// </summary>
 public class Dispatcher : IDispatcher
 {
     private readonly Store _store;
@@ -22,9 +16,6 @@ public class Dispatcher : IDispatcher
 
     private readonly IReadOnlyList<IDispatchMiddleware> _middlewares;
 
-    /// <summary>
-    /// Initializes the synchronous dispatcher.
-    /// </summary>
     public Dispatcher(
         Store store,
         IReducerRegistry reducerRegistry,
@@ -41,18 +32,15 @@ public class Dispatcher : IDispatcher
         _effectsPipeline = effectsPipeline ?? throw new ArgumentNullException(nameof(effectsPipeline));
         _middlewares = (middlewares ?? Array.Empty<IDispatchMiddleware>()).ToList();
         _reducerPipelineRunner = new ReducerPipelineRunner(_store, eventPublisher);
-
-        _effectsPipeline.EnsureStarted();
     }
 
-    /// <summary>
-    /// Dispatches an action synchronously for the given slice type.
-    /// </summary>
     public void Dispatch<TSlice, TAction>(TAction action)
         where TSlice : class, ISlice
         where TAction : class, IAction
     {
         ArgumentNullException.ThrowIfNull(action);
+
+        _effectsPipeline.EnsureStarted();
 
         _dispatchQueue.Execute(() => ExecutePipeline<TSlice, TAction>(action));
     }
@@ -62,40 +50,46 @@ public class Dispatcher : IDispatcher
         where TAction : class, IAction
     {
         var middlewares = _middlewares;
-        void Terminal()
-        {
-            _actionStream.Publish(action);
-            var reducers = _reducerRegistry.GetReducers<TSlice, TAction>();
-            _reducerPipelineRunner.ApplyReducers(reducers, action);
-        }
 
         if (middlewares.Count == 0)
         {
-            Terminal();
+            Terminal<TSlice, TAction>(action);
             return;
         }
 
-        var index = -1;
-        void Next()
+        ExecuteMiddlewareChain<TSlice, TAction>(action, middlewares, 0);
+    }
+
+    private void ExecuteMiddlewareChain<TSlice, TAction>(
+        TAction action,
+        IReadOnlyList<IDispatchMiddleware> middlewares,
+        int index)
+        where TSlice : class, ISlice
+        where TAction : class, IAction
+    {
+        if (index >= middlewares.Count)
         {
-            index++;
-            if (index == middlewares.Count)
-            {
-                Terminal();
-                return;
-            }
-
-            var current = middlewares[index];
-            var task = current.InvokeAsync<TSlice, TAction>(action, () =>
-            {
-                Next();
-                return Task.CompletedTask;
-            });
-
-            EnsureMiddlewareCompletedSynchronously(task, current);
+            Terminal<TSlice, TAction>(action);
+            return;
         }
 
-        Next();
+        var current = middlewares[index];
+        var task = current.InvokeAsync<TSlice, TAction>(action, () =>
+        {
+            ExecuteMiddlewareChain<TSlice, TAction>(action, middlewares, index + 1);
+            return Task.CompletedTask;
+        });
+
+        EnsureMiddlewareCompletedSynchronously(task, current);
+    }
+
+    private void Terminal<TSlice, TAction>(TAction action)
+        where TSlice : class, ISlice
+        where TAction : class, IAction
+    {
+        _actionStream.Publish(action);
+        var reducers = _reducerRegistry.GetReducers<TSlice, TAction>();
+        _reducerPipelineRunner.ApplyReducers(reducers, action);
     }
 
     private static void EnsureMiddlewareCompletedSynchronously(Task task, IDispatchMiddleware middleware)

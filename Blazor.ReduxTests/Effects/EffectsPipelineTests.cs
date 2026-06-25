@@ -12,7 +12,7 @@ namespace Blazor.ReduxTests.Effects;
 [Description("IDK why not working ( infinite )")]
 public class EffectsPipelineTests
 {
-    //[Fact]
+    [Fact]
     public void EffectsPipelineDispatchesActionsFromStream()
     {
         var services = new ServiceCollection();
@@ -52,7 +52,7 @@ public class EffectsPipelineTests
         Assert.Equal(3, store.GetSlice<EffectSlice>()?.Value);
     }
 
-    //[Fact]
+    [Fact]
     public void EffectsPipelineHandlesMultipleQueuedActions()
     {
         var services = new ServiceCollection();
@@ -86,7 +86,7 @@ public class EffectsPipelineTests
         Assert.Equal(3, store.GetSlice<EffectSlice>()?.Value);
     }
 
-    //[Fact]
+    [Fact]
     public void EffectsPipelineSupportsDebounce()
     {
         var services = new ServiceCollection();
@@ -121,7 +121,7 @@ public class EffectsPipelineTests
         Assert.Equal(3, store.GetSlice<DebounceSlice>()?.Value);
     }
 
-    //[Fact]
+    [Fact]
     public void EffectsPipelineSupportsCancellationWithSwitch()
     {
         var services = new ServiceCollection();
@@ -156,7 +156,7 @@ public class EffectsPipelineTests
         Assert.Equal(2, store.GetSlice<CancelSlice>()?.Value);
     }
 
-    //[Fact]
+    [Fact]
     public void EffectsPipelineUsesRxSwitchCancellationStrategy()
     {
         var services = new ServiceCollection();
