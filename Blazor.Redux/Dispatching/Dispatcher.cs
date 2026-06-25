@@ -12,8 +12,8 @@ public class Dispatcher : IDispatcher
     private readonly DispatchQueue _dispatchQueue;
     private readonly ActionStream _actionStream;
     private readonly EffectsPipeline _effectsPipeline;
+    private readonly ReducerPipelineRunner _reducerPipelineRunner;
 
-    private readonly IStoreEventPublisher? _eventPublisher;
     private readonly IReadOnlyList<IDispatchMiddleware> _middlewares;
 
     public Dispatcher(
@@ -30,8 +30,8 @@ public class Dispatcher : IDispatcher
         _dispatchQueue = dispatchQueue ?? throw new ArgumentNullException(nameof(dispatchQueue));
         _actionStream = actionStream ?? throw new ArgumentNullException(nameof(actionStream));
         _effectsPipeline = effectsPipeline ?? throw new ArgumentNullException(nameof(effectsPipeline));
-        _eventPublisher = eventPublisher;
         _middlewares = (middlewares ?? Array.Empty<IDispatchMiddleware>()).ToList();
+        _reducerPipelineRunner = new ReducerPipelineRunner(_store, eventPublisher);
 
         _effectsPipeline.EnsureStarted();
     }
@@ -45,36 +45,6 @@ public class Dispatcher : IDispatcher
         _dispatchQueue.Execute(() => ExecutePipeline<TSlice, TAction>(action));
     }
 
-    private void ApplyReducers<TSlice, TAction>(IEnumerable<IReducer<TSlice, TAction>> reducers, TAction action)
-        where TSlice : class, ISlice
-        where TAction : class, IAction
-    {
-        var reducerList = reducers as IList<IReducer<TSlice, TAction>> ?? reducers.ToList();
-        if (reducerList.Count == 0)
-        {
-            return;
-        }
-
-        var currentSlice = _store.GetSlice<TSlice>();
-
-        if (currentSlice is null) throw new InvalidOperationException($"Slice '{typeof(TSlice).Name}' is not registered in the store.");
-
-        var newSlice = reducerList.Aggregate(currentSlice, (slice, reducer) => reducer.Reduce(slice, action));
-
-        if (_eventPublisher != null)
-        {
-            _eventPublisher.PublishEvent(new StoreEvent(
-                EventType: typeof(TAction).Name,
-                SliceType: typeof(TSlice).Name,
-                NewState: newSlice,
-                PreviousState: currentSlice,
-                Action: action
-            ));
-        }
-
-        _store.UpdateSlice(newSlice);
-    }
-
     private void ExecutePipeline<TSlice, TAction>(TAction action)
         where TSlice : class, ISlice
         where TAction : class, IAction
@@ -84,7 +54,7 @@ public class Dispatcher : IDispatcher
         {
             _actionStream.Publish(action);
             var reducers = _reducerRegistry.GetReducers<TSlice, TAction>();
-            ApplyReducers(reducers, action);
+            _reducerPipelineRunner.ApplyReducers(reducers, action);
         }
 
         if (middlewares.Count == 0)
