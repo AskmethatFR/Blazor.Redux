@@ -1,16 +1,14 @@
-using System.Linq;
 using System.Runtime.ExceptionServices;
 using Blazor.Redux.Core;
 using Blazor.Redux.Core.Events;
 using Blazor.Redux.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Blazor.Redux.Dispatching;
 
 public class Dispatcher : IDispatcher
 {
     private readonly Store _store;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IReducerRegistry _reducerRegistry;
     private readonly DispatchQueue _dispatchQueue;
     private readonly ActionStream _actionStream;
     private readonly EffectsPipeline _effectsPipeline;
@@ -20,7 +18,7 @@ public class Dispatcher : IDispatcher
 
     public Dispatcher(
         Store store,
-        IServiceProvider serviceProvider,
+        IReducerRegistry reducerRegistry,
         DispatchQueue dispatchQueue,
         ActionStream actionStream,
         EffectsPipeline effectsPipeline,
@@ -28,7 +26,7 @@ public class Dispatcher : IDispatcher
         IEnumerable<IDispatchMiddleware> middlewares)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _reducerRegistry = reducerRegistry ?? throw new ArgumentNullException(nameof(reducerRegistry));
         _dispatchQueue = dispatchQueue ?? throw new ArgumentNullException(nameof(dispatchQueue));
         _actionStream = actionStream ?? throw new ArgumentNullException(nameof(actionStream));
         _effectsPipeline = effectsPipeline ?? throw new ArgumentNullException(nameof(effectsPipeline));
@@ -85,7 +83,7 @@ public class Dispatcher : IDispatcher
         void Terminal()
         {
             _actionStream.Publish(action);
-            var reducers = _serviceProvider.GetServices<IReducer<TSlice, TAction>>();
+            var reducers = _reducerRegistry.GetReducers<TSlice, TAction>();
             ApplyReducers(reducers, action);
         }
 
