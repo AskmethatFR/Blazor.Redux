@@ -112,6 +112,99 @@ public class MiddlewareTests
 
         Assert.Equal(0, store.GetSlice<MiddlewareSlice>()?.Value);
     }
+
+    [Fact]
+    public async Task AsyncMiddlewareExecutesInRegisteredOrder()
+    {
+        MiddlewareProbe.Reset();
+        var services = new ServiceCollection();
+        services.AddBlazorRedux(new BlazorReduxOption
+        {
+            Slices = [new MiddlewareSlice { Value = 0 }],
+            Assembly = Assembly.GetExecutingAssembly(),
+            Middlewares = new List<Type> { typeof(LogMiddlewareA), typeof(LogMiddlewareB) }
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IAsyncDispatcher>();
+        var store = provider.GetRequiredService<Blazor.Redux.Core.Store>();
+
+        await dispatcher.DispatchAsync<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(7));
+
+        Assert.Equal(["A-before", "B-before", "B-after", "A-after"], MiddlewareProbe.Calls);
+        Assert.Equal(7, store.GetSlice<MiddlewareSlice>()?.Value);
+    }
+
+    [Fact]
+    public async Task AsyncMiddlewareCanShortCircuit()
+    {
+        MiddlewareProbe.Reset();
+        var services = new ServiceCollection();
+        services.AddBlazorRedux(new BlazorReduxOption
+        {
+            Slices = [new MiddlewareSlice { Value = 0 }],
+            Assembly = Assembly.GetExecutingAssembly(),
+            Middlewares = new List<Type> { typeof(ShortCircuitMiddleware) }
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IAsyncDispatcher>();
+        var store = provider.GetRequiredService<Blazor.Redux.Core.Store>();
+
+        await dispatcher.DispatchAsync<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(5));
+
+        Assert.Equal(0, store.GetSlice<MiddlewareSlice>()?.Value);
+    }
+
+    [Fact]
+    public async Task AsyncMiddlewareExceptionBubblesUpAndStopsReducer()
+    {
+        MiddlewareProbe.Reset();
+        var services = new ServiceCollection();
+        services.AddBlazorRedux(new BlazorReduxOption
+        {
+            Slices = [new MiddlewareSlice { Value = 0 }],
+            Assembly = Assembly.GetExecutingAssembly(),
+            Middlewares = new List<Type> { typeof(ThrowingMiddleware) }
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IAsyncDispatcher>();
+        var store = provider.GetRequiredService<Blazor.Redux.Core.Store>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            dispatcher.DispatchAsync<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(1)));
+
+        Assert.Equal(0, store.GetSlice<MiddlewareSlice>()?.Value);
+    }
+
+    [Fact]
+    public async Task ReducerPipelineRunnerIsSharedBetweenDispatchers()
+    {
+        // Verifies both dispatchers apply reducers identically
+        MiddlewareProbe.Reset();
+        var services = new ServiceCollection();
+        services.AddBlazorRedux(new BlazorReduxOption
+        {
+            Slices = [new MiddlewareSlice { Value = 0 }],
+            Assembly = Assembly.GetExecutingAssembly(),
+            Middlewares = new List<Type> { typeof(LogMiddlewareA) }
+        });
+
+        using var provider = services.BuildServiceProvider();
+        var syncDispatcher = provider.GetRequiredService<IDispatcher>();
+        var asyncDispatcher = provider.GetRequiredService<IAsyncDispatcher>();
+        var store = provider.GetRequiredService<Blazor.Redux.Core.Store>();
+
+        syncDispatcher.Dispatch<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(2));
+        Assert.Equal(2, store.GetSlice<MiddlewareSlice>()?.Value);
+
+        MiddlewareProbe.Reset();
+
+        await asyncDispatcher.DispatchAsync<MiddlewareSlice, MiddlewareAction>(new MiddlewareAction(3));
+
+        Assert.Equal(5, store.GetSlice<MiddlewareSlice>()?.Value);
+    }
 }
 
 public record MiddlewareSlice : ISlice
